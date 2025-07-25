@@ -9,8 +9,10 @@
     <tr>
         <td>
             {{if $mult}}
-            <input type="checkbox" id="option{{$i}}" name="option{{$i}}" value="True">
-            <label for="option{{$i}}">{{$o}}</label>
+            <label class="check" for="option{{$i}}">
+                <input type="checkbox" id="option{{$i}}" name="option{{$i}}" value="True">
+                {{$o}}
+            </label>
             {{else}}
             <button onclick="vote({{$i}},{{$num}});">{{$o}}</button>
             {{end}}
