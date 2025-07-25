@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Survey</title>
+  <script>
+    function reload() {
+      fetch("/resultRest/?id={{.SurveyID}}")
+          .then(function (response) {
+             if (response.status !== 200) {
+                 window.location.reload();
+                 return;
+             }
+             return response.text();
+          })
+          .catch(function (error) {
+             alert("networkError");
+          })
+          .then(function (json) {
+             let obj=JSON.parse(json)
+             if (obj.Title) {
+                 document.getElementById("title").innerHTML = obj.Title;
+             }
+             if (obj.Result) {
+                 document.getElementById("result").innerHTML = obj.Result;
+             }
+             setTimeout(reload, 2000);
+          })
+    }
+  </script>
+  <style>
+    table {
+      margin-left: auto;
+      margin-right: auto;
+    }
+    img {
+      width: auto;
+      height: calc( 100vh - 12.5em );
+      text-align: center;
+    }
+    td {
+       text-align: center;
+    }
+    th {
+        padding-left: 0.5em;
+    }
+    td.title {
+        text-align: left;
+    }
+    td.num {
+        text-align: right;
+    }
+  </style>
+</head>
+<body onload="setTimeout(reload, 2000);">
+  <table style="width: 100%;">
+    <tr>
+        <td>
+    <img id="qrcode" src="data:image/png;base64,{{.QRCode}}" alt="QrCode" />
+        </td>
+    </tr>
+    <tr>
+        <td id="title">
+            {{.Title}}
+        </td>
+    </tr>
+    <tr>
+        <td id="result">
+            {{.Result}}
+        </td>
+    </tr>
+  </table>
+</body>
+</html>

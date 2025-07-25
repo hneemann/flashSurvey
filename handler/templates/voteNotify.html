@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Survey</title>
+    <style>
+        body {
+            font-size: 200%;
+            font-family: Arial, sans-serif;
+        }
+        table {
+          width: 100%;
+          text-align: center;
+        }
+        td {
+          padding: 1em;
+        }
+        button {
+          font-size: inherit;
+        }
+    </style>
+</head>
+<body>
+    <table>
+        <tr>
+            <td>
+   {{if .Error}}
+   Es ist ein Fehler aufgetreten: {{.Error}}
+   {{else}}
+   Sie haben erfolgreich abgestimmt!
+   {{end}}
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <button onclick="reload()">Nächste Wahl</button>
+            </td>
+        </tr>
+</body>
+</html>

@@ -1,0 +1,11 @@
+ <table>
+    <tr>
+        <th>Option</th><th>Stimmen</th><th>Prozent</th>
+    </tr>
+    {{range .}}
+    <tr>
+        <td class="title">{{.Title}}</td><td class="num">{{.Votes}}</td><td class="num">{{.Percent}}%</td>
+    </tr>
+    {{end}}
+ </table>
+

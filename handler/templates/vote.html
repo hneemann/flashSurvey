@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Umfrage</title>
+    <style>
+        @media (pointer: coarse) {
+           body {
+               font-family: Arial, sans-serif;
+               font-size: 250%;
+           }
+           html {
+               -moz-text-size-adjust: none;
+               -webkit-text-size-adjust: none;
+           }
+        }
+        @media (pointer: fine) {
+           body {
+               font-family: Arial, sans-serif;
+               font-size: 150%;
+           }
+        }
+        table {
+          text-align: center;
+          font-family: inherit;
+          margin-left: auto;
+          margin-right: auto;
+        }
+        td {
+          padding: 1em;
+        }
+        button {
+          width: 100%;
+          padding: 0.5em;
+          font-size: inherit;
+          font-family: inherit;
+        }
+        input[type=checkbox] {
+           width:1.5em;
+           height:1.5em
+        }
+  </style>
+  <script>
+    function vote(option,number) {
+      updateTable("/voteRest/?id={{.SurveyID}}&o=" + option+"&n=" + number);
+    }
+    function reload() {
+      updateTable("/voteRest/?id={{.SurveyID}}");
+    }
+    function multipleVote(number) {
+      let option = "";
+      for (let i = 0; i < 6; i++) {
+        let o = document.getElementById("option" + i);
+        if (o.checked) {
+          if (option.length > 0) {
+            option = option+",";
+          }
+          option += i;
+        }
+      }
+      updateTable("/voteRest/?id={{.SurveyID}}&o=" + option+"&n=" + number);
+    }
+    function updateTable(url) {
+      fetch(url)
+          .then(function (response) {
+             if (response.status !== 200) {
+                 window.location.reload();
+                 return;
+             }
+             return response.text();
+          })
+          .catch(function (error) {
+             alert("networkError");
+          })
+          .then(function(html) {
+             document.getElementById("table").innerHTML = html;
+          })
+    }
+  </script>
+
+</head>
+<body>
+  <table id="table">
+      {{template "voteQuestion.html" .}}
+  </table>
+</body>
+</html>

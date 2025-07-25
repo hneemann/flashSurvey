@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{if .Title}}{{.Title}}{{else}}Umfrage{{end}}</title>
+</head>
+<body>
+<h2>Umfrage erzeugen</h2>
+<p>
+  <a href="/result/?id={{.SurveyID}}" target="_blank">Ergebnis</a>,
+  <a href="/vote/?id={{.SurveyID}}" target="_blank">Selbst abstimmen</a>
+</p>
+<form action="/" method="post">
+    <table>
+        <tr>
+            <td><label for="title">Frage:</label></td>
+            <td><input type="text" size="50" id="title" name="title" required value="{{.Title}}"></td>
+        </tr>
+        <tr>
+            <td><label for="option1">Option 1:</label></td>
+            <td><input type="text" size="50" id="option1" name="option1" value="{{index .Options 0 }}" required></td>
+        </tr>
+        <tr>
+            <td><label for="option2">Option 2:</label></td>
+            <td><input type="text" size="50" id="option2" name="option2" value="{{index .Options 1 }}" required></td>
+        </tr>
+        <tr>
+            <td><label for="option3">Option 3:</label></td>
+            <td><input type="text" size="50" id="option3" name="option3" value="{{index .Options 2 }}" ></td>
+        </tr>
+        <tr>
+            <td><label for="option4">Option 4:</label></td>
+            <td><input type="text" size="50" id="option4" name="option4" value="{{index .Options 3 }}"></td>
+        </tr>
+        <tr>
+            <td><label for="option5">Option 5:</label></td>
+            <td><input type="text" size="50" id="option5" name="option5" value="{{index .Options 4 }}"></td>
+        </tr>
+        <tr>
+            <td><label for="option6">Option 6:</label></td>
+            <td><input type="text" size="50" id="option6" name="option6" value="{{index .Options 5 }}"></td>
+        </tr>
+        <tr>
+            <td><input type="checkbox"  id="multiple" name="multiple" value="true" {{if .Multiple}}checked{{end}}></td>
+            <td><label for="multiple">Mehrfachauswahl</label></td>
+        </tr>
+    </table>
+    <p>
+      <button type="submit">Erzeugen</button>
+      <a href="{{.URL}}">Perma-Link</a>
+    </p>
+</form>
+</body>
+</html>

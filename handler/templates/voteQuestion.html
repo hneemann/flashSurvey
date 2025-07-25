@@ -1,0 +1,26 @@
+    <tr>
+        <td>
+            {{.Title}}
+        </td>
+    </tr>
+    {{$num := .Number}}
+    {{$mult := .Multiple}}
+    {{range $i,$o:= .Options}}
+    <tr>
+        <td>
+            {{if $mult}}
+            <input type="checkbox" id="option{{$i}}" name="option{{$i}}" value="True">
+            <label for="option{{$i}}">{{$o}}</label>
+            {{else}}
+            <button onclick="vote({{$i}},{{$num}});">{{$o}}</button>
+            {{end}}
+        </td>
+    </tr>
+    {{end}}
+    {{if $mult}}
+    <tr>
+        <td>
+            <button onclick="multipleVote({{$num}});">Senden</button>
+        </td>
+    </tr>
+    {{end}}
