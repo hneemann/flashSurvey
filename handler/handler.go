@@ -58,6 +58,7 @@ type CreateData struct {
 	Title    string
 	Multiple bool
 	Options  []string
+	Error    error
 }
 
 func (d CreateData) URL() string {
@@ -131,11 +132,7 @@ func Create(host string) http.HandlerFunc {
 			multiple := request.FormValue("multiple") == "true"
 			d.Multiple = multiple
 
-			err = survey.New(host, surveyId, title, multiple, options...)
-			if err != nil {
-				http.Error(writer, "could not create survey: "+err.Error(), http.StatusInternalServerError)
-				return
-			}
+			d.Error = survey.New(host, surveyId, title, multiple, options...)
 		}
 		err := createTemp.Execute(writer, d)
 		if err != nil {

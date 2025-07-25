@@ -10,6 +10,9 @@
   <a href="/result/?id={{.SurveyID}}" target="_blank">Ergebnis</a>,
   <a href="/vote/?id={{.SurveyID}}" target="_blank">Selbst abstimmen</a>
 </p>
+{{if .Error}}
+<p style="color: red;">Fehler: {{.Error}}</p>
+{{end}}
 <form action="/" method="post">
     <table>
         <tr>

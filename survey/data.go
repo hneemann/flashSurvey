@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/skip2/go-qrcode"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -108,6 +109,10 @@ var (
 func New(host string, id SurveyID, title string, multiple bool, options ...string) error {
 	opt := make([]Option, len(options))
 	for i, option := range options {
+		option = strings.TrimSpace(option)
+		if option == "" {
+			return errors.New("Option " + strconv.Itoa(i+1) + " ist leer!")
+		}
 		opt[i] = Option{Title: option, Votes: 0}
 	}
 
@@ -116,6 +121,19 @@ func New(host string, id SurveyID, title string, multiple bool, options ...strin
 	qrCode, err := qrcode.Encode(url, qrcode.Medium, 512)
 	if err != nil {
 		return fmt.Errorf("could not create qr code: %w", err)
+	}
+
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return errors.New("Es fehlt der Titel!")
+	}
+
+	if len(opt) < 2 {
+		return errors.New("Es müssen mindestens zwei Optionen angegeben werden!")
+	}
+
+	if multiple && len(opt) < 3 {
+		return errors.New("Bei Mehrfachauswahl müssen mindestens drei Optionen angegeben werden!")
 	}
 
 	mutex.Lock()
@@ -153,10 +171,6 @@ func Vote(surveyID SurveyID, voterId VoterID, option []int, number int) error {
 
 	if _, voted := survey.votesCounted[voterId]; voted {
 		return errors.New("Sie haben bereits abgestimmt!")
-	}
-
-	if !survey.multiple && len(option) > 1 {
-		return errors.New("Bei dieser Umfrage können Sie nur eine Option wählen!")
 	}
 
 	for _, opt := range option {
