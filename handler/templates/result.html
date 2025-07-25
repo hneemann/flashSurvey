@@ -29,14 +29,17 @@
     }
   </script>
   <style>
-    table {
-      margin-left: auto;
-      margin-right: auto;
+    div.hori {
+        height: calc( 100vh - 0.5em );
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows:  1fr min-content min-content;
     }
     img {
+      height: 100%;
       width: auto;
-      height: calc( 100vh - 12.5em );
-      text-align: center;
+      margin-left: auto;
+      margin-right: auto;
     }
     td {
        text-align: center;
@@ -50,25 +53,28 @@
     td.num {
         text-align: right;
     }
+    #title {
+      width 100%;
+      text-align: center;
+      padding: 0.5em;
+    }
+    #result {
+      width 100%;
+      margin-left: auto;
+      margin-right: auto;
+      padding: 0.5em;
+    }
   </style>
 </head>
 <body onload="setTimeout(reload, 2000);">
-  <table style="width: 100%;">
-    <tr>
-        <td>
-    <img id="qrcode" src="data:image/png;base64,{{.QRCode}}" alt="QrCode" />
-        </td>
-    </tr>
-    <tr>
-        <td id="title">
-            {{.Title}}
-        </td>
-    </tr>
-    <tr>
-        <td id="result">
-            {{.Result}}
-        </td>
-    </tr>
-  </table>
+    <div class="hori">
+      <img src="data:image/png;base64,{{.QRCode}}" alt="QrCode" />
+      <div id="title">
+         {{.Title}}
+      </div>
+      <div id="result">
+         {{.Result}}
+      </div>
+  </div>
 </body>
 </html>
