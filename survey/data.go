@@ -12,7 +12,10 @@ import (
 	"time"
 )
 
-const maxStringLen = 100
+const (
+	maxStringLen  = 100
+	surveyTimeout = time.Hour
+)
 
 type Option struct {
 	Title string
@@ -75,18 +78,16 @@ type SurveyID string
 type UserID string
 
 type Survey struct {
-	mutex         sync.Mutex
-	surveyID      SurveyID
-	userID        UserID
-	qrCode        string
-	options       Options
-	title         string
-	number        int
-	multiple      bool
-	votesCounted  map[UserID]struct{}
-	optionStrings []string
-	resultHidden  bool
-	creationTime  time.Time
+	mutex        sync.Mutex
+	definition   SurveyDef
+	surveyID     SurveyID
+	userID       UserID
+	qrCode       string
+	options      Options
+	number       int
+	votesCounted map[UserID]struct{}
+	resultHidden bool
+	creationTime time.Time
 }
 
 func (s *Survey) Lock() {
@@ -106,7 +107,7 @@ type Result struct {
 
 func (s *Survey) Result() Result {
 	return Result{
-		Title:  s.title,
+		Title:  s.definition.Title,
 		QRCode: s.qrCode,
 		Votes:  len(s.votesCounted),
 		Result: s.options.result(len(s.votesCounted), s.resultHidden),
@@ -114,20 +115,16 @@ func (s *Survey) Result() Result {
 }
 
 type Question struct {
-	Title    string
-	Number   int
-	SurveyID SurveyID
-	Options  []string
-	Multiple bool
+	Number     int
+	SurveyID   SurveyID
+	Definition SurveyDef
 }
 
 func (s *Survey) Question() Question {
 	return Question{
-		Title:    s.title,
-		Number:   s.number,
-		SurveyID: s.surveyID,
-		Multiple: s.multiple,
-		Options:  s.optionStrings,
+		Number:     s.number,
+		SurveyID:   s.surveyID,
+		Definition: s.definition,
 	}
 }
 
@@ -136,9 +133,65 @@ var (
 	surveys = map[SurveyID]*Survey{}
 )
 
-func New(host string, userid UserID, surveyId SurveyID, title string, multiple bool, options ...string) error {
-	opt := make([]Option, len(options))
-	for i, option := range options {
+type SurveyDef struct {
+	Title    string
+	Options  []string
+	Multiple bool
+}
+
+func (d SurveyDef) Valid() bool {
+	return d.Title != "" && len(d.Options) >= 2
+}
+
+func (d SurveyDef) String() string {
+	str := d.clean(d.Title)
+	if d.Multiple {
+		str += ";m"
+	} else {
+		str += ";s"
+	}
+	for _, o := range d.Options {
+		if o != "" {
+			str += ";" + d.clean(o)
+		}
+	}
+	return str
+}
+
+func (d SurveyDef) clean(o string) string {
+	o = strings.TrimSpace(o)
+	o = strings.ReplaceAll(o, ";", "")
+	return o
+}
+
+func DefinitionFromString(str string) (SurveyDef, error) {
+	parts := strings.Split(str, ";")
+	if len(parts) < 4 {
+		return SurveyDef{}, errors.New("Ungültige Umfrage-Definition!")
+	}
+
+	def := SurveyDef{
+		Title:    parts[0],
+		Multiple: parts[1] == "m",
+	}
+
+	for _, option := range parts[2:] {
+		option = strings.TrimSpace(option)
+		if option != "" {
+			def.Options = append(def.Options, option)
+		}
+	}
+
+	if !def.Valid() {
+		return SurveyDef{}, errors.New("Ungültige Umfrage-Definition!")
+	}
+
+	return def, nil
+}
+
+func New(host string, userid UserID, surveyId SurveyID, def SurveyDef) error {
+	opt := make([]Option, len(def.Options))
+	for i, option := range def.Options {
 		option = strings.TrimSpace(option)
 		if option == "" {
 			return fmt.Errorf("Option %d ist leer!", i+1)
@@ -155,10 +208,10 @@ func New(host string, userid UserID, surveyId SurveyID, title string, multiple b
 		return fmt.Errorf("could not create qr code: %w", err)
 	}
 
-	title = strings.TrimSpace(title)
-	if title == "" {
+	def.Title = strings.TrimSpace(def.Title)
+	if def.Title == "" {
 		return errors.New("Es fehlt der Titel!")
-	} else if len(title) > maxStringLen {
+	} else if len(def.Title) > maxStringLen {
 		return fmt.Errorf("Der Titel ist zu lang! Maximal %d Zeichen erlaubt.", maxStringLen)
 	}
 
@@ -178,34 +231,45 @@ func New(host string, userid UserID, surveyId SurveyID, title string, multiple b
 	}
 
 	survey := Survey{
-		surveyID:      surveyId,
-		userID:        userid,
-		qrCode:        base64.StdEncoding.EncodeToString(qrCode),
-		options:       opt,
-		optionStrings: options,
-		number:        num,
-		multiple:      multiple,
-		title:         title,
-		resultHidden:  true,
-		votesCounted:  make(map[UserID]struct{}),
-		creationTime:  time.Now(),
+		surveyID:     surveyId,
+		userID:       userid,
+		qrCode:       base64.StdEncoding.EncodeToString(qrCode),
+		options:      opt,
+		definition:   def,
+		number:       num,
+		resultHidden: true,
+		votesCounted: make(map[UserID]struct{}),
+		creationTime: time.Now(),
 	}
 	surveys[surveyId] = &survey
 
-	log.Printf("created a survey with %d options", len(opt))
+	log.Printf("created a survey with %d options, in total %d", len(opt), len(surveys))
 
 	return nil
 }
 
-func getSurvey(surveyID SurveyID) (*Survey, bool) {
+func getSurveyToVote(surveyID SurveyID) (*Survey, bool) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	survey, exists := surveys[surveyID]
 	return survey, exists
 }
 
+func getSurveyCheckUser(userId UserID, surveyID SurveyID) (*Survey, bool) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	survey, exists := surveys[surveyID]
+	if !exists {
+		return nil, false
+	}
+	if survey.userID != userId {
+		return nil, false
+	}
+	return survey, exists
+}
+
 func Uncover(userid UserID, surveyID SurveyID, debug bool) error {
-	survey, exists := getSurvey(surveyID)
+	survey, exists := getSurveyCheckUser(userid, surveyID)
 	if !exists {
 		return errors.New("Diese Umfrage existiert nicht!")
 	}
@@ -226,8 +290,44 @@ func Uncover(userid UserID, surveyID SurveyID, debug bool) error {
 	return nil
 }
 
+func GetResult(userId UserID, surveyID SurveyID) Result {
+	survey, exists := getSurveyCheckUser(userId, surveyID)
+	if !exists {
+		return Result{Title: "Die Umfrage existiert nicht!"}
+	}
+
+	survey.Lock()
+	defer survey.Unlock()
+
+	return survey.Result()
+}
+
+func GetRunningSurvey(userID UserID, surveyID SurveyID) (SurveyDef, bool) {
+	survey, exists := getSurveyCheckUser(userID, surveyID)
+	if !exists {
+		return SurveyDef{}, false
+	}
+
+	survey.Lock()
+	defer survey.Unlock()
+
+	return survey.definition, true
+}
+
+func IsHiddenRunning(userID UserID, surveyID SurveyID) (bool, bool) {
+	survey, exists := getSurveyCheckUser(userID, surveyID)
+	if !exists {
+		return false, false
+	}
+
+	survey.Lock()
+	defer survey.Unlock()
+
+	return survey.resultHidden, true
+}
+
 func Vote(surveyID SurveyID, voterId UserID, option []int, number int) error {
-	survey, exists := getSurvey(surveyID)
+	survey, exists := getSurveyToVote(surveyID)
 	if !exists {
 		return errors.New("Diese Umfrage existiert nicht!")
 	}
@@ -255,23 +355,8 @@ func Vote(surveyID SurveyID, voterId UserID, option []int, number int) error {
 	return nil
 }
 
-func GetResult(userId UserID, surveyID SurveyID) Result {
-	survey, exists := getSurvey(surveyID)
-	if !exists {
-		return Result{Title: "Die Umfrage existiert nicht!"}
-	}
-
-	survey.Lock()
-	defer survey.Unlock()
-
-	if survey.userID != userId {
-		return Result{Title: "Sie sind nicht der Ersteller dieser Umfrage!"}
-	}
-	return survey.Result()
-}
-
-func HasVoted(surveyID SurveyID, userId UserID) bool {
-	survey, exists := getSurvey(surveyID)
+func HasVoted(surveyID SurveyID, voterId UserID) bool {
+	survey, exists := getSurveyToVote(surveyID)
 	if !exists {
 		return false
 	}
@@ -279,14 +364,14 @@ func HasVoted(surveyID SurveyID, userId UserID) bool {
 	survey.Lock()
 	defer survey.Unlock()
 
-	_, voted := survey.votesCounted[userId]
+	_, voted := survey.votesCounted[voterId]
 	return voted
 }
 
 func GetQuestion(surveyID SurveyID) Question {
-	survey, exists := getSurvey(surveyID)
+	survey, exists := getSurveyToVote(surveyID)
 	if !exists {
-		return Question{Title: "Die Umfrage existiert nicht!"}
+		return Question{Definition: SurveyDef{Title: "Die Umfrage existiert nicht!"}}
 	}
 
 	survey.Lock()
@@ -294,20 +379,6 @@ func GetQuestion(surveyID SurveyID) Question {
 
 	return survey.Question()
 }
-
-func IsHiddenRunning(surveyID SurveyID) (bool, bool) {
-	survey, exists := getSurvey(surveyID)
-	if !exists {
-		return false, false
-	}
-
-	survey.Lock()
-	defer survey.Unlock()
-
-	return survey.resultHidden, true
-}
-
-const surveyTimeout = time.Hour
 
 func StartSurveyCheck() {
 	go func() {

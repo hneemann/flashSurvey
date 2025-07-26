@@ -1,28 +1,26 @@
     <tr>
         <td>
-            {{.Title}}
+            {{.Definition.Title}}
         </td>
     </tr>
-    {{$num := .Number}}
-    {{$mult := .Multiple}}
-    {{range $i,$o:= .Options}}
+    {{range $i,$o:= .Definition.Options}}
     <tr>
         <td>
-            {{if $mult}}
+            {{if $.Definition.Multiple}}
             <label class="check" for="option{{$i}}">
-                <input type="checkbox" id="option{{$i}}" name="option{{$i}}" value="True">
+                <input type="checkbox" id="option{{$i}}" name="option{{$i}}" >
                 {{$o}}
             </label>
             {{else}}
-            <button onclick="vote({{$i}},{{$num}});">{{$o}}</button>
+            <button onclick="vote({{$i}},{{$.Number}});">{{$o}}</button>
             {{end}}
         </td>
     </tr>
     {{end}}
-    {{if $mult}}
+    {{if .Definition.Multiple}}
     <tr>
         <td>
-            <button onclick="multipleVote({{$num}});">Senden</button>
+            <button onclick="multipleVote({{.Number}});">Senden</button>
         </td>
     </tr>
     {{end}}

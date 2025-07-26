@@ -2,14 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>{{if .Title}}{{.Title}}{{else}}Umfrage{{end}}</title>
+  <title>{{if .Definition.Title}}{{.Definition.Title}}{{else}}Umfrage{{end}}</title>
 </head>
 <body>
 <h2>Umfrage erzeugen</h2>
-<p>
-  <a href="/result/" target="_blank">Ergebnis/QR-Code Seite</a>,
-  <a href="/vote/?id={{.SurveyID}}" target="_blank">Selbst abstimmen</a>
-</p>
 {{if .Error}}
 <p style="color: red;">Fehler: {{.Error}}</p>
 {{end}}
@@ -22,24 +18,50 @@
     <table>
         <tr>
             <td style="padding-bottom: 0.75em;"><label for="title">Frage:</label></td>
-            <td style="padding-bottom: 0.75em;"><input type="text" size="50" id="title" name="title" required value="{{.Title}}"></td>
+            <td style="padding-bottom: 0.75em;"><input type="text" size="50" id="title" name="title" required value="{{.Definition.Title}}"></td>
         </tr>
-        {{range $i,$o := .Options}}
+        {{range $i := .MaxOptions}}
         <tr>
             <td><label for="option{{$i}}">Option {{inc $i}}:</label></td>
-            <td><input type="text" size="50" id="option{{$i}}" name="option{{$i}}" value="{{$o}}"></td>
+            <td><input type="text" size="50" id="option{{$i}}" name="option{{$i}}" value="{{getIfAvail $.Definition.Options $i}}"></td>
         </tr>
         {{end}}
         <tr>
-            <td><input type="checkbox"  id="multiple" name="multiple" value="true" {{if .Multiple}}checked{{end}}></td>
+            <td><input type="checkbox"  id="multiple" name="multiple" value="true" {{if .Definition.Multiple}}checked{{end}}></td>
             <td><label for="multiple">Mehrfachauswahl erlauben</label></td>
         </tr>
     </table>
     <p>
-      <button type="submit" name="create" value="true"{{if .Hidden}} style="background:red"{{end}}>Erzeugen</button>
-      <button type="submit" name="uncover" value="true"{{if not .Hidden}} disabled{{end}}>Aufdecken</button>
+      <button type="submit" name="create" value="true"{{if .Hidden}} style="background:red"{{end}}>Starten</button>
+      <button type="submit" name="uncover" value="true"{{if not .Hidden}} disabled{{end}}>Ergebnisse anzeigen</button>
       <a href="{{.URL}}">Perma-Link</a>
     </p>
 </form>
+
+<hr>
+
+<p>
+  <a href="/result/" target="_blank">Beamer-Seite</a>,
+  <a href="/vote/?id={{.SurveyID}}" target="_blank">Selbst abstimmen</a>
+</p>
+
+<hr>
+
+<h2>Beispiele</h2>
+
+<p>
+    <a href="/?q=Habe+ich+schon+einmal+etwas+im+Unterricht+nicht+verstanden%3F%3Bs%3BNoch+nie%21+Ich+verstehe+immer+alles%21%3BIst+schon+vorgekommen%21%3BSchon+oft%21">
+        Schon mal was nicht verstanden?</a>,
+    <a href="/?q=Habe+ich+in+solchen+Situationen+noch+einmal+nachgefragt%3F%3Bs%3BJedes+mal%21%3BMeistens%3BManchmal%3BKaum">
+        Nachgefragt?</a>,
+    <a href="/?q=Warum+habe+ich+nicht+nachgefragt%3F%3Bm%3BAngst+vor+dem+Spot+der+Mitsch%C3%BCler.%3BAngst%2C+dass+der+Lehrer+schlecht+%C3%BCber+mich+denkt.%3BIch+bin+eher+introvertiert+und+mag+nicht+Fragen.%3BIch+wollte+es+lieber+Daheim+noch+einmal+ansehen.%3BIch+wollte+den+Betrieb+nicht+aufhalten.%3BIch+verstehe+den+Lehrer+sowiso+nicht.">
+        Warum nicht?</a>,
+    <a href="/?q=Die+letzte+Aufgabe%3Bs%3Bhabe+ich+nicht+einmal+verstanden!%3Bkonnte+ich+nicht+lösen!%3Bkonnte+ich+lösen%2C+ich+bin+nur+nicht+fertig+geworden!%3Bhatte+ich+richtig!%3Bwar+zu+leicht!">
+        Aufgabe</a>,
+    <a href="/?q=Die+letzte+Erklärung%3Bs%3Bhabe+ich+überhaupt+nicht+verstanden!%3Bhabe+ich+grob+verstanden!%3Bist+bis+auf+wenige+Details+klar!%3Bhabe+ich+komplett+verstanden!">
+        Erklärung</a>
+</p>
+
+
 </body>
 </html>

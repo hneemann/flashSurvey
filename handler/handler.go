@@ -21,6 +21,12 @@ var templateFS embed.FS
 var (
 	Templates = template.Must(template.New("").Funcs(template.FuncMap{
 		"inc": func(i int) int { return i + 1 },
+		"getIfAvail": func(o []string, i int) string {
+			if i < len(o) {
+				return o[i]
+			}
+			return ""
+		},
 	}).ParseFS(templateFS, "templates/*.html"))
 	createTemp       = Templates.Lookup("create.html")
 	resultTemp       = Templates.Lookup("result.html")
@@ -77,34 +83,16 @@ func randomString() string {
 }
 
 type CreateData struct {
-	SurveyID survey.SurveyID
-	Title    string
-	Multiple bool
-	Hidden   bool
-	Running  bool
-	Options  []string
-	Error    error
+	SurveyID   survey.SurveyID
+	Definition survey.SurveyDef
+	Hidden     bool
+	Running    bool
+	MaxOptions int
+	Error      error
 }
 
 func (d CreateData) URL() string {
-	str := d.clean(d.Title)
-	if d.Multiple {
-		str += ";m"
-	} else {
-		str += ";s"
-	}
-	for _, o := range d.Options {
-		if o != "" {
-			str += ";" + d.clean(o)
-		}
-	}
-	return "?q=" + template.URLQueryEscaper(str)
-}
-
-func (d CreateData) clean(o string) string {
-	o = strings.TrimSpace(o)
-	o = strings.ReplaceAll(o, ";", "")
-	return o
+	return "?q=" + template.URLQueryEscaper(d.Definition.String())
 }
 
 func Create(host string, maxOptions int, debug bool) http.HandlerFunc {
@@ -115,39 +103,10 @@ func Create(host string, maxOptions int, debug bool) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		userId := GetUserId(request)
 
-		var d CreateData
-
-		q := request.URL.Query().Get("q")
-		str := strings.Split(q, ";")
-		if len(str) > 3 {
-			o := make([]string, maxOptions)
-			for i, s := range str[2:] {
-				if len(s) > 0 {
-					if i < len(o) {
-						o[i] = s
-					} else {
-						break
-					}
-				}
-			}
-			d = CreateData{
-				Title:    str[0],
-				Multiple: str[1] == "m",
-				Options:  o,
-			}
-		} else {
-			o := make([]string, maxOptions)
-			o[0] = "habe ich nicht einmal verstanden!"
-			o[1] = "konnte ich nicht lösen!"
-			o[2] = "konnte ich lösen, bin aber nicht fertig geworden!"
-			o[3] = "war Ok!"
-			o[4] = "war zu leicht!"
-			d = CreateData{
-				Title:   "Die letzte Aufgabe",
-				Options: o,
-			}
+		d := CreateData{
+			SurveyID:   GetSurveyId(writer, request),
+			MaxOptions: maxOptions,
 		}
-		d.SurveyID = GetSurveyId(writer, request)
 
 		if request.Method == http.MethodPost {
 			err := request.ParseForm()
@@ -155,31 +114,49 @@ func Create(host string, maxOptions int, debug bool) http.HandlerFunc {
 				http.Error(writer, "could not parse form: "+err.Error(), http.StatusBadRequest)
 				return
 			}
-			title := request.FormValue("title")
-			d.Title = title
-			var options []string
+			o := make([]string, 0, maxOptions)
 			for i := range maxOptions {
-				o := request.FormValue("option" + strconv.Itoa(i))
-				if o != "" {
-					options = append(options, o)
+				op := strings.TrimSpace(request.FormValue("option" + strconv.Itoa(i)))
+				if op != "" {
+					o = append(o, op)
 				}
-				d.Options[i] = o
 			}
-			multiple := request.FormValue("multiple") == "true"
-			d.Multiple = multiple
-
+			d.Definition = survey.SurveyDef{
+				Title:    request.FormValue("title"),
+				Options:  o,
+				Multiple: request.FormValue("multiple") == "true",
+			}
 			if request.Form.Has("create") {
-				d.Error = survey.New(host, userId, d.SurveyID, title, multiple, options...)
+				d.Error = survey.New(host, userId, d.SurveyID, d.Definition)
 			} else {
 				d.Error = survey.Uncover(userId, d.SurveyID, debug)
 			}
 		}
+		if !d.Definition.Valid() {
+			q := request.URL.Query().Get("q")
+			if fromUrl, err := survey.DefinitionFromString(q); err == nil {
+				d.Definition = fromUrl
+			} else {
+				if running, ok := survey.GetRunningSurvey(userId, d.SurveyID); ok {
+					d.Definition = running
+				} else {
+					d.Definition = survey.SurveyDef{
+						Title: "Die letzte Aufgabe",
+						Options: []string{"habe ich nicht einmal verstanden!",
+							"konnte ich nicht lösen!",
+							"konnte ich lösen, ich bin nur nicht fertig geworden!",
+							"hatte ich richtig!",
+							"war zu leicht!"},
+					}
+				}
+			}
+		}
 
-		d.Hidden, d.Running = survey.IsHiddenRunning(d.SurveyID)
+		d.Hidden, d.Running = survey.IsHiddenRunning(userId, d.SurveyID)
 
 		err := createTemp.Execute(writer, d)
 		if err != nil {
-			http.Error(writer, "could not execute template: "+err.Error(), http.StatusInternalServerError)
+			log.Println(err)
 			return
 		}
 	}
@@ -249,18 +226,21 @@ func Vote(writer http.ResponseWriter, request *http.Request) {
 func VoteRest(writer http.ResponseWriter, request *http.Request) {
 	query := request.URL.Query()
 	surveyId := survey.SurveyID(query.Get("id"))
-	option := query.Get("o")
+	isOption := query.Has("o")
 	var o []int
-	for _, s := range strings.Split(option, ",") {
-		oi, err := strconv.Atoi(s)
-		if err == nil {
-			o = append(o, oi)
+	if isOption {
+		option := query.Get("o")
+		for _, s := range strings.Split(option, ",") {
+			oi, err := strconv.Atoi(s)
+			if err == nil {
+				o = append(o, oi)
+			}
 		}
 	}
 
 	userId := GetUserId(request)
 	var err error
-	if len(o) > 0 {
+	if isOption {
 		nStr := query.Get("n")
 		var n int
 		n, err = strconv.Atoi(nStr)
