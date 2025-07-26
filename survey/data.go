@@ -270,7 +270,7 @@ func StartSurveyCheck() {
 		for {
 			time.Sleep(30 * time.Minute)
 			deleted, remaining := cleanup()
-			if deleted > 0 || remaining >= 0 {
+			if deleted > 0 || remaining > 0 {
 				log.Printf("Deleted %d old surveys, %d surveys remaining\n", deleted, remaining)
 			}
 		}
