@@ -13,7 +13,11 @@
 {{if .Error}}
 <p style="color: red;">Fehler: {{.Error}}</p>
 {{end}}
+{{if .Running}}
 <p>{{if .Hidden}}Ergebnisse sind noch verborgen!{{else}}Ergebnisse sind sichtbar!{{end}}</p>
+{{else}}
+<p>Noch keine Umfrage gestartet.</p>
+{{end}}
 <form action="/" method="post">
     <table>
         <tr>
@@ -46,7 +50,7 @@
         </tr>
         <tr>
             <td><input type="checkbox"  id="multiple" name="multiple" value="true" {{if .Multiple}}checked{{end}}></td>
-            <td><label for="multiple">Mehrfachauswahl</label></td>
+            <td><label for="multiple">Mehrfachauswahl erlauben</label></td>
         </tr>
     </table>
     <p>

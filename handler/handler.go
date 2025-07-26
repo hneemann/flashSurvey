@@ -72,6 +72,7 @@ type CreateData struct {
 	Title    string
 	Multiple bool
 	Hidden   bool
+	Running  bool
 	Options  []string
 	Error    error
 }
@@ -130,7 +131,6 @@ func Create(host string, debug bool) http.HandlerFunc {
 			}
 		}
 		d.SurveyID = GetSurveyId(writer, request)
-		d.Hidden = survey.IsHidden(d.SurveyID)
 
 		if request.Method == http.MethodPost {
 			err := request.ParseForm()
@@ -152,11 +152,14 @@ func Create(host string, debug bool) http.HandlerFunc {
 			d.Multiple = multiple
 
 			if request.Form.Has("create") {
-				d.Hidden, d.Error = survey.New(host, userId, d.SurveyID, title, multiple, options...)
+				d.Error = survey.New(host, userId, d.SurveyID, title, multiple, options...)
 			} else {
-				d.Hidden, d.Error = survey.Uncover(userId, d.SurveyID, debug)
+				d.Error = survey.Uncover(userId, d.SurveyID, debug)
 			}
 		}
+
+		d.Hidden, d.Running = survey.IsHiddenRunning(d.SurveyID)
+
 		err := createTemp.Execute(writer, d)
 		if err != nil {
 			http.Error(writer, "could not execute template: "+err.Error(), http.StatusInternalServerError)

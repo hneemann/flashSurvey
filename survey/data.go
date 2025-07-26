@@ -127,14 +127,14 @@ var (
 	surveys = map[SurveyID]*Survey{}
 )
 
-func New(host string, userid UserID, surveyId SurveyID, title string, multiple bool, options ...string) (bool, error) {
+func New(host string, userid UserID, surveyId SurveyID, title string, multiple bool, options ...string) error {
 	opt := make([]Option, len(options))
 	for i, option := range options {
 		option = strings.TrimSpace(option)
 		if option == "" {
-			return false, fmt.Errorf("Option %d ist leer!", i+1)
+			return fmt.Errorf("Option %d ist leer!", i+1)
 		} else if len(option) > maxStringLen {
-			return false, fmt.Errorf("Option %d ist zu lang! Maximal %d Zeichen erlaubt.", i+1, maxStringLen)
+			return fmt.Errorf("Option %d ist zu lang! Maximal %d Zeichen erlaubt.", i+1, maxStringLen)
 		}
 		opt[i] = Option{Title: option, Votes: 0}
 	}
@@ -143,22 +143,18 @@ func New(host string, userid UserID, surveyId SurveyID, title string, multiple b
 
 	qrCode, err := qrcode.Encode(url, qrcode.Medium, 512)
 	if err != nil {
-		return false, fmt.Errorf("could not create qr code: %w", err)
+		return fmt.Errorf("could not create qr code: %w", err)
 	}
 
 	title = strings.TrimSpace(title)
 	if title == "" {
-		return false, errors.New("Es fehlt der Titel!")
+		return errors.New("Es fehlt der Titel!")
 	} else if len(title) > maxStringLen {
-		return false, fmt.Errorf("Der Titel ist zu lang! Maximal %d Zeichen erlaubt.", maxStringLen)
+		return fmt.Errorf("Der Titel ist zu lang! Maximal %d Zeichen erlaubt.", maxStringLen)
 	}
 
 	if len(opt) < 2 {
-		return false, errors.New("Es müssen mindestens zwei Optionen angegeben werden!")
-	}
-
-	if multiple && len(opt) < 3 {
-		return false, errors.New("Bei Mehrfachauswahl müssen mindestens drei Optionen angegeben werden!")
+		return errors.New("Es müssen mindestens zwei Optionen angegeben werden!")
 	}
 
 	mutex.Lock()
@@ -168,7 +164,7 @@ func New(host string, userid UserID, surveyId SurveyID, title string, multiple b
 	if existingSurvey, exists := surveys[surveyId]; exists {
 		num = existingSurvey.number + 1
 		if existingSurvey.userID != userid {
-			return false, errors.New("Diese Umfrage existiert bereits und wurde von einem anderen Benutzer erstellt!")
+			return errors.New("Diese Umfrage existiert bereits und wurde von einem anderen Benutzer erstellt!")
 		}
 	}
 
@@ -189,27 +185,27 @@ func New(host string, userid UserID, surveyId SurveyID, title string, multiple b
 
 	log.Printf("created a survey with %d options", len(opt))
 
-	return survey.resultHidden, nil
+	return nil
 }
 
-func Uncover(userid UserID, surveyID SurveyID, debug bool) (bool, error) {
+func Uncover(userid UserID, surveyID SurveyID, debug bool) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 	survey, exists := surveys[surveyID]
 	if !exists {
-		return false, errors.New("Diese Umfrage existiert nicht!")
+		return errors.New("Diese Umfrage existiert nicht!")
 	}
 	if survey.userID != userid {
-		return survey.resultHidden, errors.New("Sie sind nicht der Ersteller dieser Umfrage!")
+		return errors.New("Sie sind nicht der Ersteller dieser Umfrage!")
 	}
 
 	votes := len(survey.votesCounted)
 	if !debug && votes > 0 && votes <= 2 {
-		return survey.resultHidden, errors.New("Es sind noch nicht genug Stimmen abgegeben worden!")
+		return errors.New("Es sind noch nicht genug Stimmen abgegeben worden!")
 	}
 
 	survey.resultHidden = false
-	return survey.resultHidden, nil
+	return nil
 }
 
 func Vote(surveyID SurveyID, voterId UserID, option []int, number int) error {
@@ -262,14 +258,14 @@ func GetQuestion(surveyID SurveyID) (Question, int) {
 	return survey.Question(), survey.number
 }
 
-func IsHidden(surveyID SurveyID) bool {
+func IsHiddenRunning(surveyID SurveyID) (bool, bool) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	survey, exists := surveys[surveyID]
 	if !exists {
-		return false
+		return false, false
 	}
-	return survey.resultHidden
+	return survey.resultHidden, true
 }
 
 const surveyTimeout = time.Hour
