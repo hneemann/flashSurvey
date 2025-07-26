@@ -97,8 +97,11 @@ func (d CreateData) clean(o string) string {
 	return o
 }
 
-func Create(host string) http.HandlerFunc {
+func Create(host string, debug bool) http.HandlerFunc {
 	log.Println("QR-Host:", host)
+	if debug {
+		log.Println("Debug mode is enabled")
+	}
 	return func(writer http.ResponseWriter, request *http.Request) {
 		userId := GetUserId(request)
 
@@ -151,7 +154,7 @@ func Create(host string) http.HandlerFunc {
 			if request.Form.Has("create") {
 				d.Hidden, d.Error = survey.New(host, userId, d.SurveyID, title, multiple, options...)
 			} else {
-				d.Hidden, d.Error = survey.Uncover(userId, d.SurveyID)
+				d.Hidden, d.Error = survey.Uncover(userId, d.SurveyID, debug)
 			}
 		}
 		err := createTemp.Execute(writer, d)

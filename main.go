@@ -17,10 +17,11 @@ func main() {
 	host := flag.String("host", "", "The host which is seen externally.")
 	cert := flag.String("cert", "", "certificate pem")
 	key := flag.String("key", "", "certificate key")
+	debug := flag.Bool("debug", false, "debug mode")
 	port := flag.Int("port", 8080, "port")
 	flag.Parse()
 
-	http.HandleFunc("/", handler.EnsureId(handler.Create(*host)))
+	http.HandleFunc("/", handler.EnsureId(handler.Create(*host, *debug)))
 	http.HandleFunc("/result/", handler.EnsureId(handler.Result))
 	http.HandleFunc("/resultRest/", handler.EnsureId(handler.ResultRest))
 	http.HandleFunc("/vote/", handler.EnsureId(handler.Vote))

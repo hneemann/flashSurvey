@@ -184,7 +184,7 @@ func New(host string, userid UserID, surveyId SurveyID, title string, multiple b
 	return survey.resultHidden, nil
 }
 
-func Uncover(userid UserID, surveyID SurveyID) (bool, error) {
+func Uncover(userid UserID, surveyID SurveyID, debug bool) (bool, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	survey, exists := surveys[surveyID]
@@ -194,6 +194,12 @@ func Uncover(userid UserID, surveyID SurveyID) (bool, error) {
 	if survey.userID != userid {
 		return survey.resultHidden, errors.New("Sie sind nicht der Ersteller dieser Umfrage!")
 	}
+
+	votes := len(survey.votesCounted)
+	if !debug && votes > 0 && votes <= 2 {
+		return survey.resultHidden, errors.New("Es sind noch nicht genug Stimmen abgegeben worden!")
+	}
+
 	survey.resultHidden = false
 	return survey.resultHidden, nil
 }
