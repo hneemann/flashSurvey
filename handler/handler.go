@@ -17,13 +17,18 @@ import (
 
 //go:embed templates/*
 var templateFS embed.FS
-var Templates = template.Must(template.New("").ParseFS(templateFS, "templates/*.html"))
-var createTemp = Templates.Lookup("create.html")
-var resultTemp = Templates.Lookup("result.html")
-var voteTemp = Templates.Lookup("vote.html")
-var resultTableTemp = Templates.Lookup("resultTable.html")
-var voteNotifyTemp = Templates.Lookup("voteNotify.html")
-var voteQuestionTemp = Templates.Lookup("voteQuestion.html")
+
+var (
+	Templates = template.Must(template.New("").Funcs(template.FuncMap{
+		"inc": func(i int) int { return i + 1 },
+	}).ParseFS(templateFS, "templates/*.html"))
+	createTemp       = Templates.Lookup("create.html")
+	resultTemp       = Templates.Lookup("result.html")
+	voteTemp         = Templates.Lookup("vote.html")
+	resultTableTemp  = Templates.Lookup("resultTable.html")
+	voteNotifyTemp   = Templates.Lookup("voteNotify.html")
+	voteQuestionTemp = Templates.Lookup("voteQuestion.html")
+)
 
 func EnsureId(handler http.HandlerFunc) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
@@ -49,8 +54,12 @@ func getId(key string, writer http.ResponseWriter, request *http.Request) string
 	} else {
 		id = randomString()
 		c = &http.Cookie{
-			Name:  key,
-			Value: id,
+			Name:     key,
+			Value:    id,
+			HttpOnly: true,                    // XSS protection, no access from JavaScript
+			Secure:   true,                    // only send cookie over HTTPS
+			SameSite: http.SameSiteStrictMode, // protect from CSRF
+			Path:     "/",                     // cookie is valid for all paths
 		}
 		http.SetCookie(writer, c)
 	}
@@ -98,7 +107,7 @@ func (d CreateData) clean(o string) string {
 	return o
 }
 
-func Create(host string, debug bool) http.HandlerFunc {
+func Create(host string, maxOptions int, debug bool) http.HandlerFunc {
 	log.Println("QR-Host:", host)
 	if debug {
 		log.Println("Debug mode is enabled")
@@ -111,12 +120,14 @@ func Create(host string, debug bool) http.HandlerFunc {
 		q := request.URL.Query().Get("q")
 		str := strings.Split(q, ";")
 		if len(str) > 3 {
-			o := make([]string, 6)
+			o := make([]string, maxOptions)
 			for i, s := range str[2:] {
-				if i < len(o) {
-					o[i] = s
-				} else {
-					break
+				if len(s) > 0 {
+					if i < len(o) {
+						o[i] = s
+					} else {
+						break
+					}
 				}
 			}
 			d = CreateData{
@@ -125,9 +136,15 @@ func Create(host string, debug bool) http.HandlerFunc {
 				Options:  o,
 			}
 		} else {
+			o := make([]string, maxOptions)
+			o[0] = "habe ich nicht einmal verstanden!"
+			o[1] = "konnte ich nicht lösen!"
+			o[2] = "konnte ich lösen, bin aber nicht fertig geworden!"
+			o[3] = "war Ok!"
+			o[4] = "war zu leicht!"
 			d = CreateData{
 				Title:   "Die letzte Aufgabe",
-				Options: []string{"habe ich nicht einmal verstanden!", "konnte ich nicht lösen!", "konnte ich lösen, bin aber nicht fertig geworden!", "war Ok!", "war zu leicht!", ""},
+				Options: o,
 			}
 		}
 		d.SurveyID = GetSurveyId(writer, request)
@@ -141,8 +158,8 @@ func Create(host string, debug bool) http.HandlerFunc {
 			title := request.FormValue("title")
 			d.Title = title
 			var options []string
-			for i := range 6 {
-				o := request.FormValue("option" + strconv.Itoa(i+1))
+			for i := range maxOptions {
+				o := request.FormValue("option" + strconv.Itoa(i))
 				if o != "" {
 					options = append(options, o)
 				}
@@ -241,11 +258,6 @@ func VoteRest(writer http.ResponseWriter, request *http.Request) {
 		}
 	}
 
-	type voted struct {
-		SurveyID survey.SurveyID
-		Error    error
-	}
-
 	userId := GetUserId(request)
 	var err error
 	if len(o) > 0 {
@@ -255,14 +267,10 @@ func VoteRest(writer http.ResponseWriter, request *http.Request) {
 		if err == nil {
 			err = survey.Vote(surveyId, userId, o, n)
 		}
-		err = voteNotifyTemp.Execute(writer, voted{
-			Error: err,
-		})
+		err = voteNotifyTemp.Execute(writer, err)
 	} else {
 		if survey.HasVoted(surveyId, userId) {
-			err = voteNotifyTemp.Execute(writer, voted{
-				Error: errors.New("Es gibt noch keine neue Umfrage!"),
-			})
+			err = voteNotifyTemp.Execute(writer, errors.New("Es gibt noch keine neue Umfrage!"))
 		} else {
 			question := survey.GetQuestion(surveyId)
 			err = voteQuestionTemp.Execute(writer, question)
