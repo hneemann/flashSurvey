@@ -187,6 +187,8 @@ func New(host string, userid UserID, surveyId SurveyID, title string, multiple b
 	}
 	surveys[surveyId] = &survey
 
+	log.Printf("created a survey with %d options", len(opt))
+
 	return survey.resultHidden, nil
 }
 
@@ -270,11 +272,13 @@ func IsHidden(surveyID SurveyID) bool {
 	return survey.resultHidden
 }
 
+const surveyTimeout = time.Hour
+
 func StartSurveyCheck() {
 	go func() {
-		log.Println("Starting survey cleanup routine")
+		log.Println("Starting survey cleanup routine, timeout", surveyTimeout)
 		for {
-			time.Sleep(30 * time.Minute)
+			time.Sleep(surveyTimeout / 2)
 			deleted, remaining := cleanup()
 			if deleted > 0 || remaining > 0 {
 				log.Printf("Deleted %d old surveys, %d surveys remaining\n", deleted, remaining)
@@ -289,7 +293,7 @@ func cleanup() (int, int) {
 
 	deleteCount := 0
 	for id, survey := range surveys {
-		if time.Since(survey.creationTime) > time.Hour {
+		if time.Since(survey.creationTime) > surveyTimeout {
 			delete(surveys, id)
 			deleteCount++
 		}
