@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+const maxStringLen = 100
+
 type Option struct {
 	Title string
 	Votes int
@@ -130,7 +132,9 @@ func New(host string, userid UserID, surveyId SurveyID, title string, multiple b
 	for i, option := range options {
 		option = strings.TrimSpace(option)
 		if option == "" {
-			return false, errors.New("Option " + strconv.Itoa(i+1) + " ist leer!")
+			return false, fmt.Errorf("Option %d ist leer!", i+1)
+		} else if len(option) > maxStringLen {
+			return false, fmt.Errorf("Option %d ist zu lang! Maximal %d Zeichen erlaubt.", i+1, maxStringLen)
 		}
 		opt[i] = Option{Title: option, Votes: 0}
 	}
@@ -145,6 +149,8 @@ func New(host string, userid UserID, surveyId SurveyID, title string, multiple b
 	title = strings.TrimSpace(title)
 	if title == "" {
 		return false, errors.New("Es fehlt der Titel!")
+	} else if len(title) > maxStringLen {
+		return false, fmt.Errorf("Der Titel ist zu lang! Maximal %d Zeichen erlaubt.", maxStringLen)
 	}
 
 	if len(opt) < 2 {

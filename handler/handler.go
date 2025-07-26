@@ -179,7 +179,7 @@ func dataFromResult(result survey.Result) ResultData {
 	}
 	return ResultData{
 		QRCode: result.QRCode,
-		Title:  result.Title,
+		Title:  template.HTMLEscapeString(result.Title),
 		Result: template.HTML(b.String()),
 	}
 }
