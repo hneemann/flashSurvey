@@ -14,7 +14,7 @@
              return response.text();
           })
           .catch(function (error) {
-             alert("networkError");
+             alert("Netzwerkfehler");
           })
           .then(function (json) {
              let obj=JSON.parse(json)
@@ -55,6 +55,7 @@
         text-align: left;
     }
     td.num {
+        padding-left: 1em;
         text-align: right;
     }
     #title {
