@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"flashSurvey/handler"
+	"flashSurvey/survey"
 	"log"
 	"net/http"
 	"os"
@@ -41,6 +42,8 @@ func main() {
 			<-c
 		}
 	}()
+
+	survey.StartSurveyCheck()
 
 	var err error
 	if *cert != "" && *key != "" {

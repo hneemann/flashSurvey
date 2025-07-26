@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/skip2/go-qrcode"
+	"log"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 type Option struct {
@@ -81,6 +83,7 @@ type Survey struct {
 	votesCounted  map[UserID]struct{}
 	optionStrings []string
 	resultHidden  bool
+	creationTime  time.Time
 }
 
 type Result struct {
@@ -174,6 +177,7 @@ func New(host string, userid UserID, surveyId SurveyID, title string, multiple b
 		title:         title,
 		resultHidden:  true,
 		votesCounted:  make(map[UserID]struct{}),
+		creationTime:  time.Now(),
 	}
 	surveys[surveyId] = &survey
 
@@ -252,4 +256,20 @@ func IsHidden(surveyID SurveyID) bool {
 		return false
 	}
 	return survey.resultHidden
+}
+
+func StartSurveyCheck() {
+	go func() {
+		log.Println("Starting survey cleanup routine")
+		for {
+			time.Sleep(30 * time.Minute)
+			mutex.Lock()
+			for id, survey := range surveys {
+				if time.Since(survey.creationTime) > time.Hour {
+					delete(surveys, id)
+				}
+			}
+			mutex.Unlock()
+		}
+	}()
 }
