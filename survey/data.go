@@ -75,6 +75,7 @@ type SurveyID string
 type UserID string
 
 type Survey struct {
+	mutex         sync.Mutex
 	surveyID      SurveyID
 	userID        UserID
 	qrCode        string
@@ -88,6 +89,14 @@ type Survey struct {
 	creationTime  time.Time
 }
 
+func (s *Survey) Lock() {
+	s.mutex.Lock()
+}
+
+func (s *Survey) Unlock() {
+	s.mutex.Unlock()
+}
+
 type Result struct {
 	Title  string
 	QRCode string
@@ -95,7 +104,7 @@ type Result struct {
 	Result []OptionResult
 }
 
-func (s Survey) Result() Result {
+func (s *Survey) Result() Result {
 	return Result{
 		Title:  s.title,
 		QRCode: s.qrCode,
@@ -112,7 +121,7 @@ type Question struct {
 	Multiple bool
 }
 
-func (s Survey) Question() Question {
+func (s *Survey) Question() Question {
 	return Question{
 		Title:    s.title,
 		Number:   s.number,
@@ -188,13 +197,22 @@ func New(host string, userid UserID, surveyId SurveyID, title string, multiple b
 	return nil
 }
 
-func Uncover(userid UserID, surveyID SurveyID, debug bool) error {
+func getSurvey(surveyID SurveyID) (*Survey, bool) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	survey, exists := surveys[surveyID]
+	return survey, exists
+}
+
+func Uncover(userid UserID, surveyID SurveyID, debug bool) error {
+	survey, exists := getSurvey(surveyID)
 	if !exists {
 		return errors.New("Diese Umfrage existiert nicht!")
 	}
+
+	survey.Lock()
+	defer survey.Unlock()
+
 	if survey.userID != userid {
 		return errors.New("Sie sind nicht der Ersteller dieser Umfrage!")
 	}
@@ -209,12 +227,14 @@ func Uncover(userid UserID, surveyID SurveyID, debug bool) error {
 }
 
 func Vote(surveyID SurveyID, voterId UserID, option []int, number int) error {
-	mutex.Lock()
-	defer mutex.Unlock()
-	survey, exists := surveys[surveyID]
+	survey, exists := getSurvey(surveyID)
 	if !exists {
 		return errors.New("Diese Umfrage existiert nicht!")
 	}
+
+	survey.Lock()
+	defer survey.Unlock()
+
 	if number != survey.number {
 		return errors.New("Diese Wahl war schon abgeschlossen!")
 	}
@@ -236,35 +256,54 @@ func Vote(surveyID SurveyID, voterId UserID, option []int, number int) error {
 }
 
 func GetResult(userId UserID, surveyID SurveyID) Result {
-	mutex.Lock()
-	defer mutex.Unlock()
-	survey, exists := surveys[surveyID]
+	survey, exists := getSurvey(surveyID)
 	if !exists {
 		return Result{Title: "Die Umfrage existiert nicht!"}
 	}
+
+	survey.Lock()
+	defer survey.Unlock()
+
 	if survey.userID != userId {
 		return Result{Title: "Sie sind nicht der Ersteller dieser Umfrage!"}
 	}
 	return survey.Result()
 }
 
-func GetQuestion(surveyID SurveyID) (Question, int) {
-	mutex.Lock()
-	defer mutex.Unlock()
-	survey, exists := surveys[surveyID]
+func HasVoted(surveyID SurveyID, userId UserID) bool {
+	survey, exists := getSurvey(surveyID)
 	if !exists {
-		return Question{Title: "Die Umfrage existiert nicht!"}, -1
+		return false
 	}
-	return survey.Question(), survey.number
+
+	survey.Lock()
+	defer survey.Unlock()
+
+	_, voted := survey.votesCounted[userId]
+	return voted
+}
+
+func GetQuestion(surveyID SurveyID) Question {
+	survey, exists := getSurvey(surveyID)
+	if !exists {
+		return Question{Title: "Die Umfrage existiert nicht!"}
+	}
+
+	survey.Lock()
+	defer survey.Unlock()
+
+	return survey.Question()
 }
 
 func IsHiddenRunning(surveyID SurveyID) (bool, bool) {
-	mutex.Lock()
-	defer mutex.Unlock()
-	survey, exists := surveys[surveyID]
+	survey, exists := getSurvey(surveyID)
 	if !exists {
 		return false, false
 	}
+
+	survey.Lock()
+	defer survey.Unlock()
+
 	return survey.resultHidden, true
 }
 

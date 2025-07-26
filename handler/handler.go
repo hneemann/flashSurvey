@@ -222,7 +222,7 @@ func Vote(writer http.ResponseWriter, request *http.Request) {
 	query := request.URL.Query()
 	surveyId := survey.SurveyID(query.Get("id"))
 
-	question, _ := survey.GetQuestion(surveyId)
+	question := survey.GetQuestion(surveyId)
 	err := voteTemp.Execute(writer, question)
 	if err != nil {
 		log.Println(err)
@@ -243,43 +243,32 @@ func VoteRest(writer http.ResponseWriter, request *http.Request) {
 
 	type voted struct {
 		SurveyID survey.SurveyID
-		Number   int
 		Error    error
 	}
 
+	userId := GetUserId(request)
+	var err error
 	if len(o) > 0 {
-		number := query.Get("n")
-		n, err := strconv.Atoi(number)
-		if err == nil && n >= 0 {
-			userId := GetUserId(request)
+		nStr := query.Get("n")
+		var n int
+		n, err = strconv.Atoi(nStr)
+		if err == nil {
 			err = survey.Vote(surveyId, userId, o, n)
-
-			err = voteNotifyTemp.Execute(writer, voted{
-				Error:  err,
-				Number: n,
-			})
 		}
+		err = voteNotifyTemp.Execute(writer, voted{
+			Error: err,
+		})
 	} else {
-		question, num := survey.GetQuestion(surveyId)
-		if num >= 0 {
-			number := query.Get("n")
-			n, err := strconv.Atoi(number)
-			if err == nil && n >= 0 {
-				if n == num {
-					err = voteNotifyTemp.Execute(writer, voted{
-						Error:  errors.New("Es gibt noch keine neue Umfrage!"),
-						Number: n,
-					})
-					if err != nil {
-						log.Println(err)
-					}
-					return
-				}
-			}
+		if survey.HasVoted(surveyId, userId) {
+			err = voteNotifyTemp.Execute(writer, voted{
+				Error: errors.New("Es gibt noch keine neue Umfrage!"),
+			})
+		} else {
+			question := survey.GetQuestion(surveyId)
+			err = voteQuestionTemp.Execute(writer, question)
 		}
-		err := voteQuestionTemp.Execute(writer, question)
-		if err != nil {
-			log.Println(err)
-		}
+	}
+	if err != nil {
+		log.Println(err)
 	}
 }

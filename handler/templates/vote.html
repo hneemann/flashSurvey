@@ -47,8 +47,8 @@
     function vote(option,number) {
       updateTable("/voteRest/?id={{.SurveyID}}&o=" + option+"&n=" + number);
     }
-    function reload(number) {
-      updateTable("/voteRest/?id={{.SurveyID}}&n=" + number);
+    function reload() {
+      updateTable("/voteRest/?id={{.SurveyID}}");
     }
     function multipleVote(number) {
       let option = "";
