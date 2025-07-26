@@ -269,13 +269,25 @@ func StartSurveyCheck() {
 		log.Println("Starting survey cleanup routine")
 		for {
 			time.Sleep(30 * time.Minute)
-			mutex.Lock()
-			for id, survey := range surveys {
-				if time.Since(survey.creationTime) > time.Hour {
-					delete(surveys, id)
-				}
+			deleted, remaining := cleanup()
+			if deleted > 0 || remaining >= 0 {
+				log.Printf("Deleted %d old surveys, %d surveys remaining\n", deleted, remaining)
 			}
-			mutex.Unlock()
 		}
 	}()
+}
+
+func cleanup() (int, int) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	deleteCount := 0
+	for id, survey := range surveys {
+		if time.Since(survey.creationTime) > time.Hour {
+			delete(surveys, id)
+			deleteCount++
+		}
+	}
+
+	return deleteCount, len(surveys)
 }
