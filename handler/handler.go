@@ -163,23 +163,21 @@ func Create(host string) http.HandlerFunc {
 }
 
 type ResultData struct {
-	SurveyID survey.SurveyID `json:"-"`
-	QRCode   string          `json:"-"`
-	Title    string          `json:"Title"`
-	Result   template.HTML   `json:"Result"`
+	QRCode string        `json:"-"`
+	Title  string        `json:"Title"`
+	Result template.HTML `json:"Result"`
 }
 
-func dataFromResult(surveyId survey.SurveyID, result survey.Result) ResultData {
+func dataFromResult(result survey.Result) ResultData {
 	var b bytes.Buffer
 	err := resultTableTemp.Execute(&b, result)
 	if err != nil {
 		log.Println("could not execute result table template:", err)
 	}
 	return ResultData{
-		SurveyID: surveyId,
-		QRCode:   result.QRCode,
-		Title:    result.Title,
-		Result:   template.HTML(b.String()),
+		QRCode: result.QRCode,
+		Title:  result.Title,
+		Result: template.HTML(b.String()),
 	}
 }
 
@@ -188,7 +186,7 @@ func Result(writer http.ResponseWriter, request *http.Request) {
 	surveyId := GetSurveyId(writer, request)
 	result := survey.GetResult(userId, surveyId)
 
-	data := dataFromResult(surveyId, result)
+	data := dataFromResult(result)
 
 	err := resultTemp.Execute(writer, data)
 	if err != nil {
@@ -201,7 +199,7 @@ func ResultRest(writer http.ResponseWriter, request *http.Request) {
 	surveyId := GetSurveyId(writer, request)
 	result := survey.GetResult(userId, surveyId)
 
-	jsonData, err := json.Marshal(dataFromResult(surveyId, result))
+	jsonData, err := json.Marshal(dataFromResult(result))
 	if err != nil {
 		http.Error(writer, "could not marshal result: "+err.Error(), http.StatusInternalServerError)
 		return
