@@ -118,7 +118,6 @@ func Create(host string) http.HandlerFunc {
 			d = CreateData{
 				Title:    str[0],
 				Multiple: str[1] == "m",
-				Hidden:   true,
 				Options:  o,
 			}
 		} else {
@@ -127,6 +126,8 @@ func Create(host string) http.HandlerFunc {
 				Options: []string{"habe ich nicht einmal verstanden!", "konnte ich nicht lösen!", "konnte ich lösen, bin aber nicht fertig geworden!", "war Ok!", "war zu leicht!", ""},
 			}
 		}
+		d.SurveyID = GetSurveyId(writer, request)
+		d.Hidden = survey.IsHidden(d.SurveyID)
 
 		if request.Method == http.MethodPost {
 			err := request.ParseForm()
@@ -146,7 +147,6 @@ func Create(host string) http.HandlerFunc {
 			}
 			multiple := request.FormValue("multiple") == "true"
 			d.Multiple = multiple
-			d.SurveyID = GetSurveyId(writer, request)
 
 			if request.Form.Has("create") {
 				d.Hidden, d.Error = survey.New(host, userId, d.SurveyID, title, multiple, options...)

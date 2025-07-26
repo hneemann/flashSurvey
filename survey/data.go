@@ -243,3 +243,13 @@ func GetQuestion(surveyID SurveyID) (Question, int) {
 	}
 	return survey.Question(), survey.number
 }
+
+func IsHidden(surveyID SurveyID) bool {
+	mutex.Lock()
+	defer mutex.Unlock()
+	survey, exists := surveys[surveyID]
+	if !exists {
+		return false
+	}
+	return survey.resultHidden
+}

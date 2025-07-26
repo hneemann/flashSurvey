@@ -51,7 +51,7 @@
     </table>
     <p>
       <button type="submit" name="create" value="true"{{if .Hidden}} style="background:red"{{end}}>Erzeugen</button>
-      <button type="submit" name="uncover" value="true">Aufdecken</button>
+      <button type="submit" name="uncover" value="true"{{if not .Hidden}} disabled{{end}}>Aufdecken</button>
       <a href="{{.URL}}">Perma-Link</a>
     </p>
 </form>
