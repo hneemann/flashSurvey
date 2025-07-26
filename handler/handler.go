@@ -5,6 +5,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"flashSurvey/survey"
 	"html/template"
 	"log"
@@ -26,21 +27,34 @@ var voteQuestionTemp = Templates.Lookup("voteQuestion.html")
 
 func EnsureId(handler http.HandlerFunc) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		var id string
-		c, err := request.Cookie("surveyId")
-		if err == nil {
-			id = c.Value
-		} else {
-			id = randomString()
-			c = &http.Cookie{
-				Name:  "surveyId",
-				Value: id,
-			}
-			http.SetCookie(writer, c)
-		}
-		request = request.WithContext(context.WithValue(request.Context(), "id", id))
+		userId := getId("uid", writer, request)
+		request = request.WithContext(context.WithValue(request.Context(), "id", userId))
 		handler(writer, request)
 	}
+}
+
+func GetUserId(request *http.Request) survey.UserID {
+	return survey.UserID(request.Context().Value("id").(string))
+}
+
+func GetSurveyId(writer http.ResponseWriter, request *http.Request) survey.SurveyID {
+	return survey.SurveyID(getId("sid", writer, request))
+}
+
+func getId(key string, writer http.ResponseWriter, request *http.Request) string {
+	var id string
+	c, err := request.Cookie(key)
+	if err == nil {
+		id = c.Value
+	} else {
+		id = randomString()
+		c = &http.Cookie{
+			Name:  key,
+			Value: id,
+		}
+		http.SetCookie(writer, c)
+	}
+	return id
 }
 
 func randomString() string {
@@ -57,6 +71,7 @@ type CreateData struct {
 	SurveyID survey.SurveyID
 	Title    string
 	Multiple bool
+	Hidden   bool
 	Options  []string
 	Error    error
 }
@@ -85,7 +100,7 @@ func (d CreateData) clean(o string) string {
 func Create(host string) http.HandlerFunc {
 	log.Println("QR-Host:", host)
 	return func(writer http.ResponseWriter, request *http.Request) {
-		surveyId := survey.SurveyID(request.Context().Value("id").(string))
+		userId := GetUserId(request)
 
 		var d CreateData
 
@@ -101,16 +116,15 @@ func Create(host string) http.HandlerFunc {
 				}
 			}
 			d = CreateData{
-				SurveyID: surveyId,
 				Title:    str[0],
 				Multiple: str[1] == "m",
+				Hidden:   true,
 				Options:  o,
 			}
 		} else {
 			d = CreateData{
-				SurveyID: surveyId,
-				Title:    "Die letzte Aufgabe",
-				Options:  []string{"habe ich nicht einmal verstanden!", "konnte ich nicht lösen!", "konnte ich lösen, bin aber nicht fertig geworden!", "war Ok!", "war zu leicht!", ""},
+				Title:   "Die letzte Aufgabe",
+				Options: []string{"habe ich nicht einmal verstanden!", "konnte ich nicht lösen!", "konnte ich lösen, bin aber nicht fertig geworden!", "war Ok!", "war zu leicht!", ""},
 			}
 		}
 
@@ -132,8 +146,13 @@ func Create(host string) http.HandlerFunc {
 			}
 			multiple := request.FormValue("multiple") == "true"
 			d.Multiple = multiple
+			d.SurveyID = GetSurveyId(writer, request)
 
-			d.Error = survey.New(host, surveyId, title, multiple, options...)
+			if request.Form.Has("create") {
+				d.Hidden, d.Error = survey.New(host, userId, d.SurveyID, title, multiple, options...)
+			} else {
+				d.Hidden, d.Error = survey.Uncover(userId, d.SurveyID)
+			}
 		}
 		err := createTemp.Execute(writer, d)
 		if err != nil {
@@ -152,7 +171,7 @@ type ResultData struct {
 
 func dataFromResult(surveyId survey.SurveyID, result survey.Result) ResultData {
 	var b bytes.Buffer
-	err := resultTableTemp.Execute(&b, result.Result)
+	err := resultTableTemp.Execute(&b, result)
 	if err != nil {
 		log.Println("could not execute result table template:", err)
 	}
@@ -165,8 +184,9 @@ func dataFromResult(surveyId survey.SurveyID, result survey.Result) ResultData {
 }
 
 func Result(writer http.ResponseWriter, request *http.Request) {
-	surveyId := survey.SurveyID(request.Context().Value("id").(string))
-	result := survey.GetResult(surveyId)
+	userId := GetUserId(request)
+	surveyId := GetSurveyId(writer, request)
+	result := survey.GetResult(userId, surveyId)
 
 	data := dataFromResult(surveyId, result)
 
@@ -177,8 +197,9 @@ func Result(writer http.ResponseWriter, request *http.Request) {
 }
 
 func ResultRest(writer http.ResponseWriter, request *http.Request) {
-	surveyId := survey.SurveyID(request.Context().Value("id").(string))
-	result := survey.GetResult(surveyId)
+	userId := GetUserId(request)
+	surveyId := GetSurveyId(writer, request)
+	result := survey.GetResult(userId, surveyId)
 
 	jsonData, err := json.Marshal(dataFromResult(surveyId, result))
 	if err != nil {
@@ -197,7 +218,7 @@ func Vote(writer http.ResponseWriter, request *http.Request) {
 	query := request.URL.Query()
 	surveyId := survey.SurveyID(query.Get("id"))
 
-	question := survey.GetQuestion(surveyId)
+	question, _ := survey.GetQuestion(surveyId)
 	err := voteTemp.Execute(writer, question)
 	if err != nil {
 		log.Println(err)
@@ -215,23 +236,43 @@ func VoteRest(writer http.ResponseWriter, request *http.Request) {
 			o = append(o, oi)
 		}
 	}
+
+	type voted struct {
+		SurveyID survey.SurveyID
+		Number   int
+		Error    error
+	}
+
 	if len(o) > 0 {
 		number := query.Get("n")
 		n, err := strconv.Atoi(number)
 		if err == nil && n >= 0 {
-			voterId := survey.VoterID(request.Context().Value("id").(string))
-			err = survey.Vote(surveyId, voterId, o, n)
-			type voted struct {
-				SurveyID survey.SurveyID
-				Error    error
-			}
+			userId := GetUserId(request)
+			err = survey.Vote(surveyId, userId, o, n)
 
 			err = voteNotifyTemp.Execute(writer, voted{
-				Error: err,
+				Error:  err,
+				Number: n,
 			})
 		}
 	} else {
-		question := survey.GetQuestion(surveyId)
+		question, num := survey.GetQuestion(surveyId)
+		if num >= 0 {
+			number := query.Get("n")
+			n, err := strconv.Atoi(number)
+			if err == nil && n >= 0 {
+				if n == num {
+					err = voteNotifyTemp.Execute(writer, voted{
+						Error:  errors.New("Es gibt noch keine neue Umfrage!"),
+						Number: n,
+					})
+					if err != nil {
+						log.Println(err)
+					}
+					return
+				}
+			}
+		}
 		err := voteQuestionTemp.Execute(writer, question)
 		if err != nil {
 			log.Println(err)

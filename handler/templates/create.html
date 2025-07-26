@@ -13,6 +13,7 @@
 {{if .Error}}
 <p style="color: red;">Fehler: {{.Error}}</p>
 {{end}}
+<p>{{if .Hidden}}Ergebnisse sind noch verborgen!{{else}}Ergebnisse sind sichtbar!{{end}}</p>
 <form action="/" method="post">
     <table>
         <tr>
@@ -49,7 +50,8 @@
         </tr>
     </table>
     <p>
-      <button type="submit">Erzeugen</button>
+      <button type="submit" name="create" value="true"{{if .Hidden}} style="background:red"{{end}}>Erzeugen</button>
+      <button type="submit" name="uncover" value="true">Aufdecken</button>
       <a href="{{.URL}}">Perma-Link</a>
     </p>
 </form>

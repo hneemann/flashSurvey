@@ -2,10 +2,13 @@
     <tr>
         <th>Option</th><th>Stimmen</th><th>Prozent</th>
     </tr>
-    {{range .}}
+    {{range .Result}}
     <tr>
         <td class="title">{{.Title}}</td><td class="num">{{.Votes}}</td><td class="num">{{.Percent}}%</td>
     </tr>
     {{end}}
+    <tr>
+        <td></td><td class="num">{{.Votes}}</td><td></td>
+    </tr>
  </table>
 

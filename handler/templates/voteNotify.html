@@ -25,7 +25,7 @@
         <tr>
             <td>
    {{if .Error}}
-   Es ist ein Fehler aufgetreten: {{.Error}}
+    <span style="color: red;">{{.Error}}</span>
    {{else}}
    Sie haben erfolgreich abgestimmt!
    {{end}}
@@ -33,7 +33,7 @@
         </tr>
         <tr>
             <td>
-                <button onclick="reload()">Nächste Umfrage</button>
+                <button onclick="reload({{.Number}})">Nächste Umfrage</button>
             </td>
         </tr>
 </body>
