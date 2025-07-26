@@ -17,14 +17,6 @@ type Option struct {
 
 type Options []Option
 
-func (o Options) Votes() int {
-	votes := 0
-	for _, option := range o {
-		votes += option.Votes
-	}
-	return votes
-}
-
 type OptionResult struct {
 	Title   string
 	Votes   int
@@ -39,10 +31,9 @@ func (o OptionResult) String() string {
 	return fmt.Sprintf("%s: %d (%.1f%%)", o.Title, o.Votes, o.percent)
 }
 
-func (o Options) Result() []OptionResult {
-	sum := o.Votes()
+func (o Options) result(sum int) []OptionResult {
 	if sum == 0 {
-		sum = 1
+		sum = 1 // avoid division by zero
 	}
 	var res []OptionResult
 	for _, option := range o {
@@ -79,7 +70,7 @@ func (s Survey) Result() Result {
 	return Result{
 		Title:  s.title,
 		QRCode: s.qrCode,
-		Result: s.options.Result(),
+		Result: s.options.result(len(s.votesCounted)),
 	}
 }
 
@@ -163,10 +154,10 @@ func Vote(surveyID SurveyID, voterId VoterID, option []int, number int) error {
 	defer mutex.Unlock()
 	survey, exists := surveys[surveyID]
 	if !exists {
-		return errors.New("Die Umfrage existiert nicht!")
+		return errors.New("Diese Umfrage existiert nicht!")
 	}
 	if number != survey.number {
-		return errors.New("Diese Wahl ist schon vorbei!")
+		return errors.New("Diese Wahl war schon abgeschlossen!")
 	}
 
 	if _, voted := survey.votesCounted[voterId]; voted {

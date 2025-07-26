@@ -83,6 +83,7 @@ func (d CreateData) clean(o string) string {
 }
 
 func Create(host string) http.HandlerFunc {
+	log.Println("QR-Host:", host)
 	return func(writer http.ResponseWriter, request *http.Request) {
 		surveyId := survey.SurveyID(request.Context().Value("id").(string))
 
@@ -108,8 +109,8 @@ func Create(host string) http.HandlerFunc {
 		} else {
 			d = CreateData{
 				SurveyID: surveyId,
-				Title:    "Die Erklärung habe ich verstanden!",
-				Options:  []string{"Ja", "Teilweise", "Nein", "", "", ""},
+				Title:    "Die letzte Aufgabe",
+				Options:  []string{"habe ich nicht einmal verstanden!", "konnte ich nicht lösen!", "konnte ich lösen, bin aber nicht fertig geworden!", "war Ok!", "war zu leicht!", ""},
 			}
 		}
 
@@ -230,12 +231,10 @@ func VoteRest(writer http.ResponseWriter, request *http.Request) {
 			})
 		}
 	} else {
-
 		question := survey.GetQuestion(surveyId)
 		err := voteQuestionTemp.Execute(writer, question)
 		if err != nil {
 			log.Println(err)
 		}
 	}
-
 }

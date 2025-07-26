@@ -54,7 +54,7 @@
       let option = "";
       for (let i = 0; i < 6; i++) {
         let o = document.getElementById("option" + i);
-        if (o.checked) {
+        if (o && o.checked) {
           if (option.length > 0) {
             option = option+",";
           }

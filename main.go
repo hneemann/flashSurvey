@@ -13,9 +13,9 @@ import (
 )
 
 func main() {
-	cert := flag.String("cert", "", "certificate")
-	host := flag.String("host", "http://earth.fritz.box:8080", "host")
-	key := flag.String("key", "", "certificate")
+	host := flag.String("host", "", "The host which is seen externally.")
+	cert := flag.String("cert", "", "certificate pem")
+	key := flag.String("key", "", "certificate key")
 	port := flag.Int("port", 8080, "port")
 	flag.Parse()
 
