@@ -79,7 +79,7 @@ type UserID string
 
 type Survey struct {
 	mutex        sync.Mutex
-	definition   SurveyDef
+	question     SurveyQuestion
 	surveyID     SurveyID
 	userID       UserID
 	qrCode       string
@@ -107,7 +107,7 @@ type Result struct {
 
 func (s *Survey) Result() Result {
 	return Result{
-		Title:  s.definition.Title,
+		Title:  s.question.Title,
 		QRCode: s.qrCode,
 		Votes:  len(s.votesCounted),
 		Result: s.options.result(len(s.votesCounted), s.resultHidden),
@@ -115,16 +115,16 @@ func (s *Survey) Result() Result {
 }
 
 type Question struct {
-	Number     int
-	SurveyID   SurveyID
-	Definition SurveyDef
+	Number   int
+	SurveyID SurveyID
+	Question SurveyQuestion
 }
 
 func (s *Survey) Question() Question {
 	return Question{
-		Number:     s.number,
-		SurveyID:   s.surveyID,
-		Definition: s.definition,
+		Number:   s.number,
+		SurveyID: s.surveyID,
+		Question: s.question,
 	}
 }
 
@@ -133,17 +133,17 @@ var (
 	surveys = map[SurveyID]*Survey{}
 )
 
-type SurveyDef struct {
+type SurveyQuestion struct {
 	Title    string
 	Options  []string
 	Multiple bool
 }
 
-func (d SurveyDef) Valid() bool {
+func (d SurveyQuestion) Valid() bool {
 	return d.Title != "" && len(d.Options) >= 2
 }
 
-func (d SurveyDef) String() string {
+func (d SurveyQuestion) String() string {
 	str := d.clean(d.Title)
 	if d.Multiple {
 		str += ";m"
@@ -158,19 +158,19 @@ func (d SurveyDef) String() string {
 	return str
 }
 
-func (d SurveyDef) clean(o string) string {
+func (d SurveyQuestion) clean(o string) string {
 	o = strings.TrimSpace(o)
 	o = strings.ReplaceAll(o, ";", "")
 	return o
 }
 
-func DefinitionFromString(str string) (SurveyDef, error) {
+func DefinitionFromString(str string) (SurveyQuestion, error) {
 	parts := strings.Split(str, ";")
 	if len(parts) < 4 {
-		return SurveyDef{}, errors.New("Ungültige Umfrage-Definition!")
+		return SurveyQuestion{}, errors.New("Ungültige Umfrage-Definition!")
 	}
 
-	def := SurveyDef{
+	def := SurveyQuestion{
 		Title:    parts[0],
 		Multiple: parts[1] == "m",
 	}
@@ -183,13 +183,13 @@ func DefinitionFromString(str string) (SurveyDef, error) {
 	}
 
 	if !def.Valid() {
-		return SurveyDef{}, errors.New("Ungültige Umfrage-Definition!")
+		return SurveyQuestion{}, errors.New("Ungültige Umfrage-Definition!")
 	}
 
 	return def, nil
 }
 
-func New(host string, userid UserID, surveyId SurveyID, def SurveyDef) error {
+func New(host string, userid UserID, surveyId SurveyID, def SurveyQuestion) error {
 	opt := make([]Option, len(def.Options))
 	for i, option := range def.Options {
 		option = strings.TrimSpace(option)
@@ -222,8 +222,10 @@ func New(host string, userid UserID, surveyId SurveyID, def SurveyDef) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
+	replaced := false
 	num := 0
 	if existingSurvey, exists := surveys[surveyId]; exists {
+		replaced = true
 		num = existingSurvey.number + 1
 		if existingSurvey.userID != userid {
 			return errors.New("Diese Umfrage existiert bereits und wurde von einem anderen Benutzer erstellt!")
@@ -235,7 +237,7 @@ func New(host string, userid UserID, surveyId SurveyID, def SurveyDef) error {
 		userID:       userid,
 		qrCode:       base64.StdEncoding.EncodeToString(qrCode),
 		options:      opt,
-		definition:   def,
+		question:     def,
 		number:       num,
 		resultHidden: true,
 		votesCounted: make(map[UserID]struct{}),
@@ -243,7 +245,11 @@ func New(host string, userid UserID, surveyId SurveyID, def SurveyDef) error {
 	}
 	surveys[surveyId] = &survey
 
-	log.Printf("created a survey with %d options, in total %d", len(opt), len(surveys))
+	if replaced {
+		log.Printf("replaced an existing survey with %d options, in total %d", len(opt), len(surveys))
+	} else {
+		log.Printf("created a survey with %d options, in total %d", len(opt), len(surveys))
+	}
 
 	return nil
 }
@@ -302,16 +308,16 @@ func GetResult(userId UserID, surveyID SurveyID) Result {
 	return survey.Result()
 }
 
-func GetRunningSurvey(userID UserID, surveyID SurveyID) (SurveyDef, bool) {
+func GetRunningSurvey(userID UserID, surveyID SurveyID) (SurveyQuestion, bool) {
 	survey, exists := getSurveyCheckUser(userID, surveyID)
 	if !exists {
-		return SurveyDef{}, false
+		return SurveyQuestion{}, false
 	}
 
 	survey.Lock()
 	defer survey.Unlock()
 
-	return survey.definition, true
+	return survey.question, true
 }
 
 func IsHiddenRunning(userID UserID, surveyID SurveyID) (bool, bool) {
@@ -371,7 +377,7 @@ func HasVoted(surveyID SurveyID, voterId UserID) bool {
 func GetQuestion(surveyID SurveyID) Question {
 	survey, exists := getSurveyToVote(surveyID)
 	if !exists {
-		return Question{Definition: SurveyDef{Title: "Die Umfrage existiert nicht!"}}
+		return Question{Question: SurveyQuestion{Title: "Die Umfrage existiert nicht!"}}
 	}
 
 	survey.Lock()
@@ -386,7 +392,7 @@ func StartSurveyCheck() {
 		for {
 			time.Sleep(surveyTimeout / 2)
 			deleted, remaining := cleanup()
-			if deleted > 0 || remaining > 0 {
+			if deleted > 0 {
 				log.Printf("Deleted %d old surveys, %d surveys remaining\n", deleted, remaining)
 			}
 		}

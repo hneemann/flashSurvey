@@ -1,12 +1,12 @@
     <tr>
         <td>
-            {{.Definition.Title}}
+            {{.Question.Title}}
         </td>
     </tr>
-    {{range $i,$o:= .Definition.Options}}
+    {{range $i,$o:= .Question.Options}}
     <tr>
         <td>
-            {{if $.Definition.Multiple}}
+            {{if $.Question.Multiple}}
             <label class="check" for="option{{$i}}">
                 <input type="checkbox" id="option{{$i}}" name="option{{$i}}" >
                 {{$o}}
@@ -17,7 +17,7 @@
         </td>
     </tr>
     {{end}}
-    {{if .Definition.Multiple}}
+    {{if .Question.Multiple}}
     <tr>
         <td>
             <button onclick="multipleVote({{.Number}});">Senden</button>

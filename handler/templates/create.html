@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>{{if .Definition.Title}}{{.Definition.Title}}{{else}}Umfrage{{end}}</title>
+  <title>{{if .Question.Title}}{{.Question.Title}}{{else}}Umfrage{{end}}</title>
+  <link rel="stylesheet" type="text/css" href="/static/create.css"/>
+  <script type="text/javascript" src="/static/create.js"></script>
 </head>
 <body>
 <h2>Umfrage erzeugen</h2>
@@ -18,49 +20,52 @@
     <table>
         <tr>
             <td style="padding-bottom: 0.75em;"><label for="title">Frage:</label></td>
-            <td style="padding-bottom: 0.75em;"><input type="text" size="50" id="title" name="title" required value="{{.Definition.Title}}"></td>
+            <td style="padding-bottom: 0.75em;"><input type="text" size="70" id="title" name="title" required value="{{.Question.Title}}"></td>
         </tr>
         {{range $i := .MaxOptions}}
         <tr>
             <td><label for="option{{$i}}">Option {{inc $i}}:</label></td>
-            <td><input type="text" size="50" id="option{{$i}}" name="option{{$i}}" value="{{getIfAvail $.Definition.Options $i}}"></td>
+            <td><input type="text" size="70" id="option{{$i}}" name="option{{$i}}" value="{{getIfAvail $.Question.Options $i}}"></td>
+            {{if eq (inc $i) $.MaxOptions}}
+            <td><button type="submit" name="more" value="true">+</button></td>
+            {{end}}
         </tr>
         {{end}}
         <tr>
-            <td><input type="checkbox"  id="multiple" name="multiple" value="true" {{if .Definition.Multiple}}checked{{end}}></td>
+            <td><input type="checkbox"  id="multiple" name="multiple" value="true" {{if .Question.Multiple}}checked{{end}}></td>
             <td><label for="multiple">Mehrfachauswahl erlauben</label></td>
         </tr>
     </table>
-    <p>
+    <p style="width:100%;">
       <button type="submit" name="create" value="true"{{if .Hidden}} style="background:red"{{end}}>Starten</button>
       <button type="submit" name="uncover" value="true"{{if not .Hidden}} disabled{{end}}>Ergebnisse anzeigen</button>
-      <a href="{{.URL}}">Perma-Link</a>
+      <a style="float:right" href="{{.URL}}">Perma-Link</a>
     </p>
 </form>
 
-<hr>
+<div class="menu">
+    <img class="menu-icon" onclick="showPopUpById('menu')" src="/static/menu.svg" alt="menu icon"/>
+    <nav class="menu-content" id="menu">
+        <a class="menu-item" onclick="hidePopUp()" href="/result/" target="_blank">Beamer-Seite</a>
+        <a class="menu-item" onclick="hidePopUp()" href="/vote/?id={{.SurveyID}}" target="_blank">Selbst abstimmen</a>
 
-<p>
-  <a href="/result/" target="_blank">Beamer-Seite</a>,
-  <a href="/vote/?id={{.SurveyID}}" target="_blank">Selbst abstimmen</a>
-</p>
-
-<hr>
-
-<h2>Beispiele</h2>
-
-<p>
-    <a href="/?q=Habe+ich+schon+einmal+etwas+im+Unterricht+nicht+verstanden%3F%3Bs%3BNoch+nie%21+Ich+verstehe+immer+alles%21%3BIst+schon+vorgekommen%21%3BSchon+oft%21">
-        Schon mal was nicht verstanden?</a>,
-    <a href="/?q=Habe+ich+in+solchen+Situationen+noch+einmal+nachgefragt%3F%3Bs%3BJedes+mal%21%3BMeistens%3BManchmal%3BKaum">
-        Nachgefragt?</a>,
-    <a href="/?q=Warum+habe+ich+nicht+nachgefragt%3F%3Bm%3BAngst+vor+dem+Spot+der+Mitsch%C3%BCler.%3BAngst%2C+dass+der+Lehrer+schlecht+%C3%BCber+mich+denkt.%3BIch+bin+eher+introvertiert+und+mag+nicht+Fragen.%3BIch+wollte+es+lieber+Daheim+noch+einmal+ansehen.%3BIch+wollte+den+Betrieb+nicht+aufhalten.%3BIch+verstehe+den+Lehrer+sowiso+nicht.">
-        Warum nicht?</a>,
-    <a href="/?q=Die+letzte+Aufgabe%3Bs%3Bhabe+ich+nicht+einmal+verstanden!%3Bkonnte+ich+nicht+lösen!%3Bkonnte+ich+lösen%2C+ich+bin+nur+nicht+fertig+geworden!%3Bhatte+ich+richtig!%3Bwar+zu+leicht!">
-        Aufgabe</a>,
-    <a href="/?q=Die+letzte+Erklärung%3Bs%3Bhabe+ich+überhaupt+nicht+verstanden!%3Bhabe+ich+grob+verstanden!%3Bist+bis+auf+wenige+Details+klar!%3Bhabe+ich+komplett+verstanden!">
-        Erklärung</a>
-</p>
+        <a class="menu-item" onclick="hidePopUp()"
+           href="/?q=Die+letzte+Aufgabe%3Bs%3Bwusste+ich+nicht+einmal+zu+beginnen.%3Bkonnte+ich+nicht+lösen.%3Bkonnte+ich+lösen%2C+ich+bin+nur+nicht+fertig+geworden.%3Bhatte+ich+richtig.%3Bwar+zu+leicht.">
+           Frage Aufgabe</a>
+        <a class="menu-item" onclick="hidePopUp()"
+           href="/?q=Das+Thema%3Bs%3Bhabe+ich+überhaupt+nicht+verstanden!%3Bhabe+ich+grob+verstanden!%3Bist+bis+auf+wenige+Details+klar!%3Bhabe+ich+komplett+durchschaut!">
+           Frage Thema</a>
+        <a class="menu-item" onclick="hidePopUp()"
+           href="/?q=Habe+ich+schon+einmal+etwas+in+Unterricht%2FVorlesung+nicht+verstanden%3F%3Bs%3BNoch+nie!+Ich+verstehe+immer+alles!%3BIst+schon+mal+passiert!%3BSchon+oft!">
+           Schon mal was nicht verstanden?</a>
+        <a class="menu-item" onclick="hidePopUp()"
+           href="/?q=Habe+ich+in+solchen+Situationen+noch+einmal+nachgefragt%3F%3Bs%3BJedes+mal%21%3BMeistens%3BManchmal%3BKaum">
+           Nachgefragt?</a>
+        <a class="menu-item" onclick="hidePopUp()"
+           href="/?q=Warum+habe+ich+nicht+nachgefragt%3F%3Bm%3BAngst+vor+dem+Spot+der+Mitsch%C3%BCler.%3BAngst%2C+dass+der+Lehrer+schlecht+%C3%BCber+mich+denkt.%3BIch+bin+eher+introvertiert+und+mag+nicht+Fragen.%3BIch+wollte+es+lieber+Daheim+noch+einmal+ansehen.%3BIch+wollte+den+Betrieb+nicht+aufhalten.%3BIch+verstehe+den+Lehrer+sowiso+nicht.">
+           Warum nicht?</a>
+    </nav>
+</div>
 
 
 </body>

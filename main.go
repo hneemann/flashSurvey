@@ -17,12 +17,12 @@ func main() {
 	host := flag.String("host", "", "The host which is seen externally.")
 	cert := flag.String("cert", "", "certificate pem")
 	key := flag.String("key", "", "certificate key")
-	maxOptions := flag.Int("maxOptions", 8, "max allowed options")
 	debug := flag.Bool("debug", false, "debug mode")
 	port := flag.Int("port", 8080, "port")
 	flag.Parse()
 
-	http.HandleFunc("/", handler.EnsureId(handler.Create(*host, *maxOptions, *debug)))
+	http.HandleFunc("/", handler.EnsureId(handler.Create(*host, *debug)))
+	http.Handle("/static/", Cache(handler.Static(), 300, !*debug))
 	http.HandleFunc("/result/", handler.EnsureId(handler.Result))
 	http.HandleFunc("/resultRest/", handler.EnsureId(handler.ResultRest))
 	http.HandleFunc("/vote/", handler.EnsureId(handler.Vote))
@@ -59,4 +59,16 @@ func main() {
 		log.Println(err)
 	}
 
+}
+
+func Cache(parent http.Handler, minutes int, enableCache bool) http.Handler {
+	if enableCache {
+		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			writer.Header().Add("Cache-Control", "public, max-age="+strconv.Itoa(minutes*60))
+			parent.ServeHTTP(writer, request)
+		})
+	} else {
+		log.Println("browser caching disabled")
+		return parent
+	}
 }

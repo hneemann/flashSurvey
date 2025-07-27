@@ -18,6 +18,13 @@ import (
 //go:embed templates/*
 var templateFS embed.FS
 
+//go:embed static/*
+var staticFS embed.FS
+
+func Static() http.Handler {
+	return http.FileServer(http.FS(staticFS))
+}
+
 var (
 	Templates = template.Must(template.New("").Funcs(template.FuncMap{
 		"inc": func(i int) int { return i + 1 },
@@ -83,19 +90,26 @@ func randomString() string {
 }
 
 type CreateData struct {
-	SurveyID   survey.SurveyID
-	Definition survey.SurveyDef
-	Hidden     bool
-	Running    bool
-	MaxOptions int
-	Error      error
+	SurveyID survey.SurveyID
+	Question survey.SurveyQuestion
+	Hidden   bool
+	Running  bool
+	Error    error
+}
+
+func (d CreateData) MaxOptions() int {
+	n := len(d.Question.Options) + 2
+	if n < 5 {
+		return 5
+	}
+	return n
 }
 
 func (d CreateData) URL() string {
-	return "?q=" + template.URLQueryEscaper(d.Definition.String())
+	return "?q=" + template.URLQueryEscaper(d.Question.String())
 }
 
-func Create(host string, maxOptions int, debug bool) http.HandlerFunc {
+func Create(host string, debug bool) http.HandlerFunc {
 	log.Println("QR-Host:", host)
 	if debug {
 		log.Println("Debug mode is enabled")
@@ -104,8 +118,7 @@ func Create(host string, maxOptions int, debug bool) http.HandlerFunc {
 		userId := GetUserId(request)
 
 		d := CreateData{
-			SurveyID:   GetSurveyId(writer, request),
-			MaxOptions: maxOptions,
+			SurveyID: GetSurveyId(writer, request),
 		}
 
 		if request.Method == http.MethodPost {
@@ -114,39 +127,43 @@ func Create(host string, maxOptions int, debug bool) http.HandlerFunc {
 				http.Error(writer, "could not parse form: "+err.Error(), http.StatusBadRequest)
 				return
 			}
-			o := make([]string, 0, maxOptions)
-			for i := range maxOptions {
-				op := strings.TrimSpace(request.FormValue("option" + strconv.Itoa(i)))
+			var o []string
+			i := 0
+			for {
+				name := "option" + strconv.Itoa(i)
+				if !request.Form.Has(name) {
+					break
+				}
+				op := strings.TrimSpace(request.FormValue(name))
 				if op != "" {
 					o = append(o, op)
 				}
+				i++
 			}
-			d.Definition = survey.SurveyDef{
+			d.Question = survey.SurveyQuestion{
 				Title:    request.FormValue("title"),
 				Options:  o,
 				Multiple: request.FormValue("multiple") == "true",
 			}
-			if request.Form.Has("create") {
-				d.Error = survey.New(host, userId, d.SurveyID, d.Definition)
-			} else {
-				d.Error = survey.Uncover(userId, d.SurveyID, debug)
+			if !request.Form.Has("more") {
+				if request.Form.Has("create") {
+					d.Error = survey.New(host, userId, d.SurveyID, d.Question)
+				} else {
+					d.Error = survey.Uncover(userId, d.SurveyID, debug)
+				}
 			}
 		}
-		if !d.Definition.Valid() {
+		if !d.Question.Valid() {
 			q := request.URL.Query().Get("q")
 			if fromUrl, err := survey.DefinitionFromString(q); err == nil {
-				d.Definition = fromUrl
+				d.Question = fromUrl
 			} else {
 				if running, ok := survey.GetRunningSurvey(userId, d.SurveyID); ok {
-					d.Definition = running
+					d.Question = running
 				} else {
-					d.Definition = survey.SurveyDef{
-						Title: "Die letzte Aufgabe",
-						Options: []string{"habe ich nicht einmal verstanden!",
-							"konnte ich nicht lösen!",
-							"konnte ich lösen, ich bin nur nicht fertig geworden!",
-							"hatte ich richtig!",
-							"war zu leicht!"},
+					d.Question = survey.SurveyQuestion{
+						Title:   "",
+						Options: []string{"Ja", "Nein"},
 					}
 				}
 			}
