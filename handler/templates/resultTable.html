@@ -1,7 +1,17 @@
  <table>
     {{range .Result}}
     <tr>
-        <td class="title">{{.Title}}</td><td class="num" style="min-width:2em">{{.Votes}}</td><td class="num" style="min-width:4em">{{.Percent}}%</td>
+        <td class="title">{{.Title}}</td>
+        <td class="num" style="min-width:2em">{{.Votes}}</td>
+        <td class="num" style="min-width:4em">{{.Percent}}%</td>
+        <td  style="min-width:6em">
+            <table style="width:100%;border:border-collapse:collapse">
+                <tr>
+                    <td style="width:{{.PercentVal $.MaxPercent}}%; background-color:gray; height:0.8em"></td>
+                    <td style="width:{{.PercentValRemain $.MaxPercent}}%; background-color:white; height:0.8em"></td>
+                </tr>
+            </table>
+        </td>
     </tr>
     {{end}}
     <tr>

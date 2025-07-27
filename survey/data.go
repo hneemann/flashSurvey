@@ -13,8 +13,7 @@ import (
 )
 
 const (
-	maxStringLen  = 100
-	surveyTimeout = time.Hour
+	maxStringLen = 100
 )
 
 type Option struct {
@@ -28,6 +27,20 @@ type OptionResult struct {
 	Title   string
 	votes   int
 	percent float64
+}
+
+func (o OptionResult) PercentVal(max float64) float64 {
+	if o.votes < 0 {
+		return 0
+	}
+	return o.percent / max * 100
+}
+
+func (o OptionResult) PercentValRemain(max float64) float64 {
+	if o.votes < 0 {
+		return 100
+	}
+	return 100 - o.percent/max*100
 }
 
 func (o OptionResult) Percent() string {
@@ -48,10 +61,12 @@ func (o OptionResult) String() string {
 	return fmt.Sprintf("%s: %d (%.1f%%)", o.Title, o.votes, o.percent)
 }
 
-func (o Options) result(sum int, hidden bool) []OptionResult {
+func (o Options) result(sum int, hidden bool) ([]OptionResult, float64) {
 	if sum <= 0 {
 		sum = 1
 	}
+
+	var maxPercent float64
 
 	var res []OptionResult
 	if hidden {
@@ -61,17 +76,25 @@ func (o Options) result(sum int, hidden bool) []OptionResult {
 				votes:   -1,
 				percent: 0,
 			})
+			maxPercent = 100.0
 		}
 	} else {
 		for _, option := range o {
+			percent := float64(option.Votes) / float64(sum) * 100
 			res = append(res, OptionResult{
 				Title:   option.Title,
 				votes:   option.Votes,
-				percent: float64(option.Votes) / float64(sum) * 100,
+				percent: percent,
 			})
+			if percent > maxPercent {
+				maxPercent = percent
+			}
+		}
+		if maxPercent < 1 {
+			maxPercent = 1.0
 		}
 	}
-	return res
+	return res, maxPercent
 }
 
 type SurveyID string
@@ -99,18 +122,21 @@ func (s *Survey) Unlock() {
 }
 
 type Result struct {
-	Title  string
-	QRCode string
-	Votes  int
-	Result []OptionResult
+	Title      string
+	QRCode     string
+	Votes      int
+	Result     []OptionResult
+	MaxPercent float64
 }
 
 func (s *Survey) Result() Result {
+	result, maxPercent := s.options.result(len(s.votesCounted), s.resultHidden)
 	return Result{
-		Title:  s.question.Title,
-		QRCode: s.qrCode,
-		Votes:  len(s.votesCounted),
-		Result: s.options.result(len(s.votesCounted), s.resultHidden),
+		Title:      s.question.Title,
+		QRCode:     s.qrCode,
+		Votes:      len(s.votesCounted),
+		MaxPercent: maxPercent,
+		Result:     result,
 	}
 }
 
@@ -386,12 +412,13 @@ func GetQuestion(surveyID SurveyID) Question {
 	return survey.Question()
 }
 
-func StartSurveyCheck() {
+func StartSurveyTimeoutCheck(timeOutInMin int) {
+	surveyTimeout := time.Duration(timeOutInMin) * time.Minute
 	go func() {
 		log.Println("Starting survey cleanup routine, timeout", surveyTimeout)
 		for {
 			time.Sleep(surveyTimeout / 2)
-			deleted, remaining := cleanup()
+			deleted, remaining := cleanup(surveyTimeout)
 			if deleted > 0 {
 				log.Printf("Deleted %d old surveys, %d surveys remaining\n", deleted, remaining)
 			}
@@ -399,7 +426,7 @@ func StartSurveyCheck() {
 	}()
 }
 
-func cleanup() (int, int) {
+func cleanup(surveyTimeout time.Duration) (int, int) {
 	mutex.Lock()
 	defer mutex.Unlock()
 

@@ -17,6 +17,7 @@ func main() {
 	host := flag.String("host", "", "The host which is seen externally.")
 	cert := flag.String("cert", "", "certificate pem")
 	key := flag.String("key", "", "certificate key")
+	timeOutMin := flag.Int("timeout", 30, "timeout in minutes")
 	debug := flag.Bool("debug", false, "debug mode")
 	port := flag.Int("port", 8080, "port")
 	flag.Parse()
@@ -45,7 +46,7 @@ func main() {
 		}
 	}()
 
-	survey.StartSurveyCheck()
+	survey.StartSurveyTimeoutCheck(*timeOutMin)
 
 	var err error
 	if *cert != "" && *key != "" {
