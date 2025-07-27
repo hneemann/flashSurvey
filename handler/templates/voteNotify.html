@@ -1,14 +1,12 @@
-        <tr>
-            <td>
-   {{if .}}
-    <span style="color: red;">{{.}}</span>
-   {{else}}
-   Sie haben erfolgreich abgestimmt!
-   {{end}}
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <button onclick="reload()">Nächste Frage</button>
-            </td>
-        </tr>
+<div>
+   <div class="notify">
+     {{if .}}
+       <span style="color: red;">{{.}}</span>
+     {{else}}
+       Sie haben erfolgreich abgestimmt!
+     {{end}}
+   </div>
+   <div class="notify">
+     <button onclick="reload()">Nächste Frage</button>
+   </div>
+ </div>

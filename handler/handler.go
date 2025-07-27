@@ -67,12 +67,9 @@ func getId(key string, writer http.ResponseWriter, request *http.Request) string
 	} else {
 		id = randomString()
 		c = &http.Cookie{
-			Name:     key,
-			Value:    id,
-			HttpOnly: true,                    // XSS protection, no access from JavaScript
-			Secure:   true,                    // only send cookie over HTTPS
-			SameSite: http.SameSiteStrictMode, // protect from CSRF
-			Path:     "/",                     // cookie is valid for all paths
+			Name:  key,
+			Value: id,
+			Path:  "/", // cookie is valid for all paths
 		}
 		http.SetCookie(writer, c)
 	}

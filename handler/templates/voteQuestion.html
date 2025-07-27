@@ -1,26 +1,20 @@
-    <tr>
-        <td style="border-bottom: 1px solid black; font-weight: bold;">
-            {{.Question.Title}}
-        </td>
-    </tr>
-    {{range $i,$o:= .Question.Options}}
-    <tr>
-        <td>
-            {{if $.Question.Multiple}}
-            <label class="check" for="option{{$i}}">
-                <input type="checkbox" id="option{{$i}}" name="option{{$i}}" >
-                {{$o}}
-            </label>
-            {{else}}
-            <button onclick="vote({{$i}},{{$.Number}});">{{$o}}</button>
-            {{end}}
-        </td>
-    </tr>
+<div class="head">
+  <div class="text">{{.Question.Title}}</div>
+</div>
+{{range $i,$o:= .Question.Options}}
+  <div class="item">
+    {{if $.Question.Multiple}}
+      <label class="check" for="option{{$i}}">
+        <input type="checkbox" id="option{{$i}}" name="option{{$i}}" >
+        {{$o}}
+      </label>
+    {{else}}
+      <button onclick="vote({{$i}},{{$.Number}});">{{$o}}</button>
     {{end}}
-    {{if .Question.Multiple}}
-    <tr>
-        <td>
-            <button onclick="multipleVote({{.Number}});">Senden</button>
-        </td>
-    </tr>
-    {{end}}
+  </div>
+{{end}}
+{{if .Question.Multiple}}
+  <div class="item">
+    <button onclick="multipleVote({{.Number}});">Senden</button>
+  </div>
+{{end}}

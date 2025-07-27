@@ -7,42 +7,77 @@
     <style>
         @media (pointer: coarse) {
            body {
+               padding: 0;
+               border: 0;
+               margin: 0;
                font-family: Arial, sans-serif;
                font-size: 2.5vh;
            }
            html {
+               padding: 0;
+               border: 0;
+               margin: 0;
                -moz-text-size-adjust: none;
                -webkit-text-size-adjust: none;
            }
         }
         @media (pointer: fine) {
            body {
+               padding: 0;
+               border: 0;
+               margin: 0;
                font-family: Arial, sans-serif;
                font-size: 150%;
            }
-        }
-        table {
-          text-align: center;
-          font-family: inherit;
-          margin-left: auto;
-          margin-right: auto;
-        }
-        td {
-          padding: 1em;
+           html {
+               padding: 0;
+               border: 0;
+               margin: 0;
+           }
         }
         button {
-          width: 100%;
+          width: 90%;
           padding: 0.5em;
           font-size: inherit;
           font-family: inherit;
         }
         label.check {
+          width: 90%;
           line-height: 1.1;
-          display: grid;
           text-align: left;
+          display: grid;
           grid-template-columns: 1em auto;
           gap: 0.5em;
+          padding-left: 1.5em;
         }
+        div.main {
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-rows: repeat(auto-fit, 1fr);
+            height: 100vh;
+            width: 100%;
+        }
+        div.text {
+            font-weight: bold;
+            padding: 0.5em;
+        }
+        div.head {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        div.item {
+            width: 100%;
+            text-align: center;
+        }
+        div.notify {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding-top: 2em;
+       }
   </style>
   <script>
     function vote(option,number) {
@@ -53,15 +88,21 @@
     }
     function multipleVote(number) {
       let option = "";
-      for (let i = 0; i < 6; i++) {
+      let i = 0;
+      while (true) {
         let o = document.getElementById("option" + i);
-        if (o && o.checked) {
+        if (!o) {
+          break;
+        }
+        if (o.checked) {
           if (option.length > 0) {
             option = option+",";
           }
           option += i;
         }
+        i++;
       }
+      console.log("multipleVote: " + option);
       updateTable("/voteRest/?id={{.SurveyID}}&o=" + option+"&n=" + number);
     }
     function updateTable(url) {
@@ -77,15 +118,15 @@
              alert("networkError");
           })
           .then(function(html) {
-             document.getElementById("table").innerHTML = html;
+             document.getElementById("main").innerHTML = html;
           })
     }
   </script>
 
 </head>
 <body>
-  <table id="table">
+  <div id="main" class="main">
       {{template "voteQuestion.html" .}}
-  </table>
+  </div>
 </body>
 </html>
