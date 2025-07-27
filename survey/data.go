@@ -246,9 +246,9 @@ func New(host string, userid UserID, surveyId SurveyID, def SurveyQuestion) erro
 	surveys[surveyId] = &survey
 
 	if replaced {
-		log.Printf("replaced an existing survey with %d options, in total %d", len(opt), len(surveys))
+		log.Printf("replaced survey with %d options, in total %d", len(opt), len(surveys))
 	} else {
-		log.Printf("created a survey with %d options, in total %d", len(opt), len(surveys))
+		log.Printf("created survey with %d options, in total %d", len(opt), len(surveys))
 	}
 
 	return nil
