@@ -46,8 +46,7 @@
 <div class="menu">
     <img class="menu-icon" onclick="showPopUpById('menu')" src="/static/menu.svg" alt="menu icon"/>
     <nav class="menu-content" id="menu">
-        <a class="menu-item" onclick="hidePopUp()" href="/result/" target="_blank">Beamer-Seite</a>
-        <a class="menu-item" onclick="hidePopUp()" href="/vote/?id={{.SurveyID}}" target="_blank">Selbst abstimmen</a>
+        <a class="menu-item" onclick="hidePopUp()" style="border-bottom: 1px solid darkgrey" href="/result/" target="_blank">Beamer/Ergebnis Seite</a>
 
         <a class="menu-item" onclick="hidePopUp()"
            href="/?q=Die+letzte+Aufgabe%3Bs%3Bwusste+ich+nicht+einmal+zu+beginnen.%3Bkonnte+ich+nicht+lösen.%3Bkonnte+ich+lösen%2C+ich+bin+nur+nicht+fertig+geworden.%3Bhatte+ich+richtig.%3Bwar+zu+leicht.">
@@ -64,6 +63,8 @@
         <a class="menu-item" onclick="hidePopUp()"
            href="/?q=Warum+habe+ich+nicht+nachgefragt%3F%3Bm%3BAngst+vor+dem+Spot+der+Mitsch%C3%BCler.%3BAngst%2C+dass+der+Lehrer+schlecht+%C3%BCber+mich+denkt.%3BIch+bin+eher+introvertiert+und+mag+nicht+Fragen.%3BIch+wollte+es+lieber+Daheim+noch+einmal+ansehen.%3BIch+wollte+den+Betrieb+nicht+aufhalten.%3BIch+verstehe+den+Lehrer+sowiso+nicht.">
            Warum nicht?</a>
+
+        <a class="menu-item" onclick="hidePopUp()" style="border-top: 1px solid darkgrey" href="/vote/?id={{.SurveyID}}" target="_blank">Selbst abstimmen</a>
     </nav>
 </div>
 
