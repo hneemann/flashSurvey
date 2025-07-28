@@ -41,7 +41,7 @@
     <p>
       <button type="submit" name="create" value="true"{{if .Hidden}} style="background:red"{{end}} title="Startet die Umfrage">Starten</button>
       <button type="submit" name="uncover" value="true"{{if not .Hidden}} disabled{{end}}>Ergebnisse anzeigen</button>
-      <a  style="float:right" href="/result/" target="_blank"><button type="button" title="Öffnet die Seite mit dem QR-Code">Beamer/Ergebnis Seite</button></a>
+      <a  style="float:right" href="/result/" target="_blank"><button type="button" {{if not .Running}} disabled{{end}} title="Öffnet die Seite mit dem QR-Code">Beamer/Ergebnis Seite</button></a>
     </p>
     </div>
   </form>
@@ -49,8 +49,6 @@
   <div class="menu">
     <img class="menu-icon" onclick="showPopUpById('menu')" src="/static/menu.svg" alt="menu icon"/>
     <nav class="menu-content" id="menu">
-        <a class="menu-item" onclick="hidePopUp()" style="border-bottom: 1px solid darkgrey" href="/result/" target="_blank">Beamer/Ergebnis Seite</a>
-
         <a class="menu-item" onclick="hidePopUp()"
            href="/?q=Die+letzte+Aufgabe%3Bs%3Bwusste+ich+nicht+einmal+zu+beginnen.%3Bkonnte+ich+nicht+lösen.%3Bkonnte+ich+lösen%2C+ich+bin+nur+nicht+fertig+geworden.%3Bhatte+ich+richtig.%3Bwar+zu+leicht.">
            Die Aufgabe ...</a>
