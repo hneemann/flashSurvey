@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //go:embed templates/*
@@ -181,9 +182,10 @@ func Create(host string, debug bool) http.HandlerFunc {
 }
 
 type ResultData struct {
-	QRCode string        `json:"-"`
-	Title  string        `json:"Title"`
-	Result template.HTML `json:"Result"`
+	QRCode  string        `json:"-"`
+	Title   string        `json:"Title"`
+	Result  template.HTML `json:"Result"`
+	Version int           `json:"Version"`
 }
 
 func dataFromResult(result survey.Result) ResultData {
@@ -193,9 +195,10 @@ func dataFromResult(result survey.Result) ResultData {
 		log.Println("could not execute result table template:", err)
 	}
 	return ResultData{
-		QRCode: result.QRCode,
-		Title:  template.HTMLEscapeString(result.Title),
-		Result: template.HTML(b.String()),
+		QRCode:  result.QRCode,
+		Title:   template.HTMLEscapeString(result.Title),
+		Result:  template.HTML(b.String()),
+		Version: result.Version,
 	}
 }
 
@@ -215,7 +218,21 @@ func Result(writer http.ResponseWriter, request *http.Request) {
 func ResultRest(writer http.ResponseWriter, request *http.Request) {
 	userId := GetUserId(request)
 	surveyId := GetSurveyId(writer, request)
-	result := survey.GetResult(userId, surveyId)
+
+	vStr := request.URL.Query().Get("v")
+	v, err := strconv.Atoi(vStr)
+	if err != nil {
+		v = -1
+	}
+
+	var result survey.Result
+	if v > 0 {
+		select {
+		case <-time.After(30 * time.Second):
+		case <-survey.WaitForModification(userId, surveyId, v):
+		}
+	}
+	result = survey.GetResult(userId, surveyId)
 
 	jsonData, err := json.Marshal(dataFromResult(result))
 	if err != nil {

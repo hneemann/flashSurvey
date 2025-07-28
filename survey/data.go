@@ -101,16 +101,18 @@ type SurveyID string
 type UserID string
 
 type Survey struct {
-	mutex        sync.Mutex
-	question     SurveyQuestion
-	surveyID     SurveyID
-	userID       UserID
-	qrCode       string
-	options      Options
-	number       int
-	votesCounted map[UserID]struct{}
-	resultHidden bool
-	creationTime time.Time
+	mutex         sync.Mutex
+	question      SurveyQuestion
+	surveyID      SurveyID
+	userID        UserID
+	qrCode        string
+	options       Options
+	number        int
+	votesCounted  map[UserID]struct{}
+	resultHidden  bool
+	creationTime  time.Time
+	version       int
+	changedNotify chan struct{}
 }
 
 func (s *Survey) Lock() {
@@ -121,12 +123,21 @@ func (s *Survey) Unlock() {
 	s.mutex.Unlock()
 }
 
+func (s *Survey) changed() {
+	s.version++
+	if s.changedNotify != nil {
+		close(s.changedNotify)
+	}
+	s.changedNotify = make(chan struct{})
+}
+
 type Result struct {
 	Title      string
 	QRCode     string
 	Votes      int
 	Result     []OptionResult
 	MaxPercent float64
+	Version    int
 }
 
 func (s *Survey) Result() Result {
@@ -137,6 +148,7 @@ func (s *Survey) Result() Result {
 		Votes:      len(s.votesCounted),
 		MaxPercent: maxPercent,
 		Result:     result,
+		Version:    s.version,
 	}
 }
 
@@ -254,6 +266,7 @@ func New(host string, userID UserID, surveyID SurveyID, def SurveyQuestion) erro
 		resultHidden: true,
 		votesCounted: make(map[UserID]struct{}),
 		creationTime: time.Now(),
+		version:      1,
 	}
 
 	replaced, surveyCount, err := createSurvey(survey)
@@ -281,6 +294,11 @@ func createSurvey(newSurvey *Survey) (bool, int, error) {
 		}
 		replaced = true
 		newSurvey.number = existingSurvey.number + 1
+		newSurvey.version = existingSurvey.version
+		newSurvey.changedNotify = existingSurvey.changedNotify
+		newSurvey.changed()
+	} else {
+		newSurvey.changedNotify = make(chan struct{})
 	}
 	surveys[newSurvey.surveyID] = newSurvey
 	return replaced, len(surveys), nil
@@ -325,7 +343,32 @@ func Uncover(userid UserID, surveyID SurveyID, debug bool) error {
 	}
 
 	survey.resultHidden = false
+	survey.changed()
 	return nil
+}
+
+var closedChannel chan struct{}
+
+func init() {
+	closedChannel = make(chan struct{})
+	close(closedChannel)
+}
+
+func WaitForModification(userId UserID, surveyId SurveyID, clientVersion int) chan struct{} {
+	survey, exists := getSurveyCheckUser(userId, surveyId)
+	if !exists {
+		return nil
+	}
+
+	survey.Lock()
+	defer survey.Unlock()
+
+	if survey.version > clientVersion {
+		// immediate notification if the version is higher than the client's version
+		return closedChannel
+	}
+
+	return survey.changedNotify
 }
 
 func GetResult(userId UserID, surveyID SurveyID) Result {
@@ -389,6 +432,8 @@ func Vote(surveyID SurveyID, voterId UserID, option []int, number int) error {
 	}
 
 	survey.votesCounted[voterId] = struct{}{}
+
+	survey.changed()
 
 	return nil
 }
