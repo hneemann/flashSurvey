@@ -8,16 +8,16 @@
   <script type="text/javascript" src="/static/create.js"></script>
 </head>
 <body>
-<h2>Umfrage erzeugen</h2>
-{{if .Error}}
-<p style="color: red;">Fehler: {{.Error}}</p>
-{{end}}
-{{if .Running}}
-<p>{{if .Hidden}}Ergebnisse sind noch verborgen!{{else}}Ergebnisse sind sichtbar!{{end}}</p>
-{{else}}
-<p>Noch keine Umfrage gestartet.</p>
-{{end}}
-<form action="/" method="post">
+  <h2>Umfrage erzeugen</h2>
+  {{if .Error}}
+    <p style="color: red;">Fehler: {{.Error}}</p>
+  {{end}}
+  {{if .Running}}
+    <p>{{if .Hidden}}Ergebnisse sind noch verborgen!{{else}}Ergebnisse sind sichtbar!{{end}}</p>
+  {{else}}
+    <p>Noch keine Umfrage gestartet.</p>
+  {{end}}
+  <form action="/" method="post">
     <table>
         <tr>
             <td style="padding-bottom: 0.75em;"><label for="title">Frage:</label></td>
@@ -42,9 +42,9 @@
       <button type="submit" name="uncover" value="true"{{if not .Hidden}} disabled{{end}}>Ergebnisse anzeigen</button>
       <a style="float:right" href="{{.URL}}">Perma-Link</a>
     </p>
-</form>
+  </form>
 
-<div class="menu">
+  <div class="menu">
     <img class="menu-icon" onclick="showPopUpById('menu')" src="/static/menu.svg" alt="menu icon"/>
     <nav class="menu-content" id="menu">
         <a class="menu-item" onclick="hidePopUp()" style="border-bottom: 1px solid darkgrey" href="/result/" target="_blank">Beamer/Ergebnis Seite</a>
@@ -70,7 +70,7 @@
 
         <a class="menu-item" onclick="hidePopUp()" style="border-top: 1px solid darkgrey" href="/vote/?id={{.SurveyID}}" target="_blank">Selbst abstimmen</a>
     </nav>
-</div>
+  </div>
 
 </body>
 </html>
