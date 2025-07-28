@@ -288,7 +288,7 @@ func createSurvey(newSurvey *Survey) (bool, int, error) {
 
 func getSurveyToVote(surveyID SurveyID) (*Survey, bool) {
 	mutex.RLock()
-	defer mutex.RLock()
+	defer mutex.RUnlock()
 	survey, exists := surveys[surveyID]
 	return survey, exists
 }
