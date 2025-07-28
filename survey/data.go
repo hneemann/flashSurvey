@@ -155,7 +155,7 @@ func (s *Survey) Question() Question {
 }
 
 var (
-	mutex   sync.Mutex
+	mutex   sync.RWMutex
 	surveys = map[SurveyID]*Survey{}
 )
 
@@ -215,7 +215,7 @@ func DefinitionFromString(str string) (SurveyQuestion, error) {
 	return def, nil
 }
 
-func New(host string, userid UserID, surveyId SurveyID, def SurveyQuestion) error {
+func New(host string, userID UserID, surveyID SurveyID, def SurveyQuestion) error {
 	opt := make([]Option, len(def.Options))
 	for i, option := range def.Options {
 		option = strings.TrimSpace(option)
@@ -227,7 +227,7 @@ func New(host string, userid UserID, surveyId SurveyID, def SurveyQuestion) erro
 		opt[i] = Option{Title: option, Votes: 0}
 	}
 
-	url := host + "/vote?id=" + string(surveyId)
+	url := host + "/vote/?id=" + string(surveyID)
 
 	qrCode, err := qrcode.Encode(url, qrcode.Medium, 512)
 	if err != nil {
@@ -245,51 +245,57 @@ func New(host string, userid UserID, surveyId SurveyID, def SurveyQuestion) erro
 		return errors.New("Es müssen mindestens zwei Optionen angegeben werden!")
 	}
 
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	replaced := false
-	num := 0
-	if existingSurvey, exists := surveys[surveyId]; exists {
-		replaced = true
-		num = existingSurvey.number + 1
-		if existingSurvey.userID != userid {
-			return errors.New("Diese Umfrage existiert bereits und wurde von einem anderen Benutzer erstellt!")
-		}
-	}
-
-	survey := Survey{
-		surveyID:     surveyId,
-		userID:       userid,
+	survey := &Survey{
+		surveyID:     surveyID,
+		userID:       userID,
 		qrCode:       base64.StdEncoding.EncodeToString(qrCode),
 		options:      opt,
 		question:     def,
-		number:       num,
 		resultHidden: true,
 		votesCounted: make(map[UserID]struct{}),
 		creationTime: time.Now(),
 	}
-	surveys[surveyId] = &survey
+
+	replaced, surveyCount, err := createSurvey(survey)
+	if err != nil {
+		return err
+	}
 
 	if replaced {
-		log.Printf("replaced survey with %d options, in total %d surveys", len(opt), len(surveys))
+		log.Printf("replaced survey with %d options, in total %d surveys", len(opt), surveyCount)
 	} else {
-		log.Printf("created survey with %d options, in total %d surveys", len(opt), len(surveys))
+		log.Printf("created survey with %d options, in total %d surveys", len(opt), surveyCount)
 	}
 
 	return nil
 }
 
-func getSurveyToVote(surveyID SurveyID) (*Survey, bool) {
+func createSurvey(newSurvey *Survey) (bool, int, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
+
+	replaced := false
+	if existingSurvey, exists := surveys[newSurvey.surveyID]; exists {
+		if existingSurvey.userID != newSurvey.userID {
+			return false, 0, errors.New("Diese Umfrage existiert bereits und wurde von einem anderen Benutzer erstellt!")
+		}
+		replaced = true
+		newSurvey.number = existingSurvey.number + 1
+	}
+	surveys[newSurvey.surveyID] = newSurvey
+	return replaced, len(surveys), nil
+}
+
+func getSurveyToVote(surveyID SurveyID) (*Survey, bool) {
+	mutex.RLock()
+	defer mutex.RLock()
 	survey, exists := surveys[surveyID]
 	return survey, exists
 }
 
 func getSurveyCheckUser(userId UserID, surveyID SurveyID) (*Survey, bool) {
-	mutex.Lock()
-	defer mutex.Unlock()
+	mutex.RLock()
+	defer mutex.RUnlock()
 	survey, exists := surveys[surveyID]
 	if !exists {
 		return nil, false
