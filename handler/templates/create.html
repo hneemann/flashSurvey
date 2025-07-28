@@ -18,6 +18,7 @@
     <p>Noch keine Umfrage gestartet.</p>
   {{end}}
   <form action="/" method="post">
+    <div style="display: inline-block;">
     <table>
         <tr>
             <td style="padding-bottom: 0.75em;"><label for="title">Frage:</label></td>
@@ -37,11 +38,12 @@
             <td><label for="multiple">Mehrfachauswahl erlauben</label></td>
         </tr>
     </table>
-    <p style="width:100%;">
-      <button type="submit" name="create" value="true"{{if .Hidden}} style="background:red"{{end}}>Starten</button>
+    <p>
+      <button type="submit" name="create" value="true"{{if .Hidden}} style="background:red"{{end}} title="Startet die Umfrage">Starten</button>
       <button type="submit" name="uncover" value="true"{{if not .Hidden}} disabled{{end}}>Ergebnisse anzeigen</button>
-      <a style="float:right" href="{{.URL}}">Perma-Link</a>
+      <a  style="float:right" href="/result/" target="_blank"><button type="button" title="Öffnet die Seite mit dem QR-Code">Beamer/Ergebnis Seite</button></a>
     </p>
+    </div>
   </form>
 
   <div class="menu">
@@ -58,17 +60,9 @@
         <a class="menu-item" onclick="hidePopUp()"
            href="?q=Frage%3Bs%3BJa%3BNein">
            Ja / Nein</a>
-        <a class="menu-item" onclick="hidePopUp()"
-           href="/?q=Habe+ich+schon+einmal+etwas+in+Unterricht%2FVorlesung+nicht+verstanden%3F%3Bs%3BNoch+nie!+Ich+verstehe+immer+alles!%3BIst+schon+mal+passiert!%3BSchon+oft!">
-           Schon mal was nicht verstanden?</a>
-        <a class="menu-item" onclick="hidePopUp()"
-           href="/?q=Habe+ich+in+solchen+Situationen+noch+einmal+nachgefragt%3F%3Bs%3BJedes+mal%21%3BMeistens%3BManchmal%3BKaum">
-           Nachgefragt?</a>
-        <a class="menu-item" onclick="hidePopUp()"
-           href="/?q=Warum+habe+ich+nicht+nachgefragt%3F%3Bm%3BAngst+vor+dem+Spot+der+Mitsch%C3%BCler.%3BAngst%2C+dass+der+Lehrer+schlecht+%C3%BCber+mich+denkt.%3BIch+bin+eher+introvertiert+und+mag+nicht+Fragen.%3BIch+wollte+es+lieber+Daheim+noch+einmal+ansehen.%3BIch+wollte+den+Betrieb+nicht+aufhalten.%3BIch+verstehe+den+Lehrer+sowiso+nicht.">
-           Warum nicht?</a>
 
         <a class="menu-item" onclick="hidePopUp()" style="border-top: 1px solid darkgrey" href="/vote/?id={{.SurveyID}}" target="_blank">Selbst abstimmen</a>
+        <a class="menu-item" onclick="hidePopUp()" href="{{.URL}}">Perma-Link</a>
     </nav>
   </div>
 

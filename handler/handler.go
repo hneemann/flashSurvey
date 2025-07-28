@@ -149,12 +149,16 @@ func Create(host string, debug bool) http.HandlerFunc {
 					d.Error = survey.Uncover(userId, d.SurveyID, debug)
 				}
 			}
-		}
-		if !d.Question.Valid() {
+		} else {
 			q := request.URL.Query().Get("q")
-			if fromUrl, err := survey.DefinitionFromString(q); err == nil {
-				d.Question = fromUrl
-			} else {
+			if q != "" {
+				if fromUrl, err := survey.DefinitionFromString(q); err == nil {
+					d.Question = fromUrl
+				} else {
+					log.Println("Error parsing survey definition from URL:", err)
+				}
+			}
+			if !d.Question.Valid() {
 				if running, ok := survey.GetRunningSurvey(userId, d.SurveyID); ok {
 					d.Question = running
 				} else {
