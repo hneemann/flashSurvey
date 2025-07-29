@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Ergebnis</title>
+  <link rel="icon" type="image/svg" href="/static/icon.svg">
+  <style>
+    img {
+      height: 100%;
+      width: auto;
+      margin-left: auto;
+      margin-right: auto;
+    }
+  </style>
+</head>
+<body>
+    <h2>Umfrage weitergeben!</h2>
+    <p>
+        Mit dem Scannen dieses QR-Codes können Sie die Kontrolle über die Umfrage an das scannende Gerät weitergeben!
+        Sie können so z.B. die Umfrage auf Ihrem Tablet bedienen und die Ergebnisse weiterhin am Beamer anzeigen lassen.
+    </p>
+    <img src="data:image/png;base64,{{.}}" alt="QR-Code" />
+</body>
+</html>

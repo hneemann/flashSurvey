@@ -4,78 +4,8 @@
   <meta charset="UTF-8">
   <title>Ergebnis</title>
   <link rel="icon" type="image/svg" href="/static/icon.svg">
-  <script>
-    let version = -1;
-
-    function reload() {
-      fetch("/resultRest/?v="+version)
-          .then(function (response) {
-             if (response.status !== 200) {
-                 window.location.reload();
-                 return;
-             }
-             return response.text();
-          })
-          .catch(function (error) {
-             alert("Netzwerkfehler");
-          })
-          .then(function (json) {
-             let obj=JSON.parse(json)
-             if (obj.Title) {
-                 document.getElementById("title").innerHTML = obj.Title;
-             }
-             if (obj.Result) {
-                 document.getElementById("result").innerHTML = obj.Result;
-             }
-             if (obj.Version) {
-                 version = obj.Version;
-             }
-             setTimeout(reload, 200);
-          })
-    }
-  </script>
-  <style>
-    body, html {
-        margin: 0;
-        padding: 0;
-    }
-    div.hori {
-        height: 100vh;
-        display: grid;
-        grid-template-columns: 1fr;
-        grid-template-rows:  1fr min-content min-content;
-    }
-    img {
-      height: 100%;
-      width: auto;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    td {
-       text-align: center;
-    }
-    th {
-        padding-left: 0.5em;
-    }
-    td.title {
-        text-align: left;
-    }
-    td.num {
-        padding-left: 1em;
-        text-align: right;
-    }
-    #title {
-      width 100%;
-      text-align: center;
-      padding: 0.5em;
-    }
-    #result {
-      width 100%;
-      margin-left: auto;
-      margin-right: auto;
-      padding: 0.5em;
-    }
-  </style>
+  <link rel="stylesheet" type="text/css" href="/static/result.css"/>
+  <script type="text/javascript" src="/static/result.js"></script>
 </head>
 <body onload="setTimeout(reload, 1000);">
     <div class="hori">

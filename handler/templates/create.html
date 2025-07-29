@@ -18,24 +18,27 @@
     <p>Noch keine Umfrage gestartet.</p>
   {{end}}
   <form action="/" method="post">
-    <div style="display: inline-block;">
     <table>
         <tr>
-            <td style="padding-bottom: 0.75em;"><label for="title">Frage:</label></td>
-            <td style="padding-bottom: 0.75em;"><input type="text" size="70" id="title" name="title" required value="{{.Question.Title}}"></td>
+            <td><label for="title">Frage:</label></td>
+            <td><input type="text" id="title" name="title" required value="{{.Question.Title}}"></td>
+            <td></td>
         </tr>
         {{range $i := .MaxOptions}}
         <tr>
             <td><label for="option{{$i}}">Option {{inc $i}}:</label></td>
-            <td><input type="text" size="70" id="option{{$i}}" name="option{{$i}}" value="{{getIfAvail $.Question.Options $i}}"></td>
+            <td><input type="text"  id="option{{$i}}" name="option{{$i}}" value="{{getIfAvail $.Question.Options $i}}"></td>
             {{if eq (inc $i) $.MaxOptions}}
             <td><button type="submit" name="more" value="true">+</button></td>
+            {{else}}
+            <td></td>
             {{end}}
         </tr>
         {{end}}
         <tr>
             <td><input type="checkbox"  id="multiple" name="multiple" value="true" {{if .Question.Multiple}}checked{{end}}></td>
             <td><label for="multiple">Mehrfachauswahl erlauben</label></td>
+            <td></td>
         </tr>
     </table>
     <p>
@@ -43,24 +46,28 @@
       <button type="submit" name="uncover" value="true"{{if not .Hidden}} disabled{{end}}>Ergebnisse anzeigen</button>
       <a  style="float:right" href="/result/" target="_blank"><button type="button" {{if not .Running}} disabled{{end}} title="Öffnet die Seite mit dem QR-Code">Beamer/Ergebnis Seite</button></a>
     </p>
-    </div>
   </form>
 
   <div class="menu">
     <img class="menu-icon" onclick="showPopUpById('menu')" src="/static/menu.svg" alt="menu icon"/>
     <nav class="menu-content" id="menu">
-        <a class="menu-item" onclick="hidePopUp()"
+        <a onclick="hidePopUp()"
            href="/?q=Die+letzte+Aufgabe%3Bs%3Bwusste+ich+nicht+einmal+zu+beginnen.%3Bkonnte+ich+nicht+l%C3%B6sen.%3Bh%C3%A4tte+ich+l%C3%B6sen+k%C3%B6nnen.+Die+Zeit+hat+nur+nicht+gereicht.%3Bhabe+ich+korrekt+gel%C3%B6st.%3Bwar+zu+leicht.">
            Die Aufgabe ...</a>
-        <a class="menu-item" onclick="hidePopUp()"
-           href="/?q=Das+Thema%3Bs%3Bhabe+ich+überhaupt+nicht+verstanden!%3Bhabe+ich+grob+verstanden!%3Bist+bis+auf+wenige+Details+klar!%3Bhabe+ich+komplett+durchschaut!">
+        <a onclick="hidePopUp()"
+           href="/?q=Das+Thema%3Bs%3Bhabe+ich+überhaupt+nicht+verstanden!%3Bhabe+ich+nur+grob+verstanden!%3Bist+bis+auf+wenige+Details+klar!%3Bhabe+ich+komplett+durchschaut!">
            Das Thema ...</a>
-        <a class="menu-item" onclick="hidePopUp()"
+        <a onclick="hidePopUp()"
            href="?q=Frage%3Bs%3BJa%3BNein">
            Ja / Nein</a>
 
-        <a class="menu-item" onclick="hidePopUp()" style="border-top: 1px solid darkgrey" href="/vote/?id={{.SurveyID}}" target="_blank" title="Erlaubt Ihnen, auch selbst eine Stimme abzugeben.">Selbst abstimmen</a>
-        <a class="menu-item" onclick="hidePopUp()" href="{{.URL}}" title="Erlaubt das Abspeichern einer Umfrage als Link im Browser.">Perma-Link</a>
+        <a onclick="hidePopUp()" style="border-top: 1px solid darkgrey" href="/vote/?id={{.SurveyID}}" target="_blank" title="Erlaubt Ihnen, auch selbst eine Stimme abzugeben.">Selbst abstimmen</a>
+        <a onclick="hidePopUp()" href="{{.URL}}" title="Erlaubt das Abspeichern einer Umfrage als Link im Browser.">Perma-Link</a>
+        {{if .Running}}
+        <a onclick="hidePopUp()" href="/move/" title="Erlaubt das Weitergeben der Umfrage an ein anderes Gerät!">Kontrolle Weitergeben</a>
+        {{else}}
+        <span onclick="hidePopUp()" title="Erlaubt das Weitergeben der Umfrage an ein anderes Gerät!">Kontrolle Weitergeben</span>
+        {{end}}
     </nav>
   </div>
 

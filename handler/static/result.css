@@ -1,0 +1,69 @@
+@media (pointer: coarse) {
+    html {
+        font-size: 150%;
+        -moz-text-size-adjust: none;
+        -webkit-text-size-adjust: none;
+    }
+}
+
+body, html {
+    margin: 0;
+    padding: 0;
+}
+div.hori {
+    border: 2px solid green;
+    height: 100vh;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows:  1fr min-content min-content;
+}
+
+@media (orientation: landscape) {
+    img {
+        height: 100%;
+        width: auto;
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
+
+@media (orientation: portrait) {
+    img {
+        width: 100%;
+        height: auto;
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
+
+td {
+    text-align: center;
+}
+th {
+    padding-left: 0.5em;
+}
+td.title {
+    text-align: left;
+}
+td.num {
+    padding-left: 1em;
+    text-align: right;
+}
+table.main {
+    border: 1px solid red;
+    margin-left: auto;
+    margin-right: auto;
+}
+#title {
+    width: 100%;
+    text-align: center;
+    padding: 0.5em;
+}
+#result {
+    border: 1px solid black;
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0.5em;
+}
