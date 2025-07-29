@@ -43,6 +43,7 @@ var (
 	resultTableTemp  = Templates.Lookup("resultTable.html")
 	voteNotifyTemp   = Templates.Lookup("voteNotify.html")
 	voteQuestionTemp = Templates.Lookup("voteQuestion.html")
+	finishedTemp     = Templates.Lookup("finished.html")
 )
 
 func EnsureId(handler http.HandlerFunc) http.HandlerFunc {
@@ -111,7 +112,14 @@ func Clear(s *survey.Surveys) http.HandlerFunc {
 			MaxAge: -1,
 		})
 
-		http.Redirect(writer, request, "/", http.StatusSeeOther)
+		http.Redirect(writer, request, "/finished/", http.StatusSeeOther)
+	}
+}
+
+func Finished(writer http.ResponseWriter, _ *http.Request) {
+	err := finishedTemp.Execute(writer, nil)
+	if err != nil {
+		log.Println(err)
 	}
 }
 

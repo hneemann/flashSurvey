@@ -439,7 +439,7 @@ func (s *Surveys) WaitForModification(userId UserID, surveyId SurveyID, clientVe
 func (s *Surveys) GetResult(userId UserID, surveyID SurveyID) Result {
 	survey, exists := s.getSurveyCheckUser(userId, surveyID)
 	if !exists {
-		return Result{Title: "Die Umfrage existiert nicht!"}
+		return Result{Title: "Es gibt z.Z. keine Umfrage!"}
 	}
 
 	survey.Lock()

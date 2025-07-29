@@ -37,6 +37,7 @@ func main() {
 	http.HandleFunc("/voteRest/", handler.EnsureId(handler.VoteRest(surveys)))
 	http.HandleFunc("/move/", handler.EnsureId(handler.Move(surveys)))
 	http.HandleFunc("/clear/", handler.EnsureId(handler.Clear(surveys)))
+	http.HandleFunc("/finished/", handler.Finished)
 
 	serv := &http.Server{Addr: ":" + strconv.Itoa(*port)}
 
