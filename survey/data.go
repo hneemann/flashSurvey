@@ -312,6 +312,8 @@ func (s *Surveys) createSurvey(newSurvey *Survey) (bool, int, error) {
 			return false, 0, errors.New("Diese Umfrage existiert bereits und wurde von einem anderen Benutzer erstellt!")
 		}
 		replaced = true
+		existingSurvey.Lock()
+		defer existingSurvey.Unlock()
 		newSurvey.number = existingSurvey.number + 1
 		newSurvey.version = existingSurvey.version
 		newSurvey.changedNotify = existingSurvey.changedNotify
@@ -341,6 +343,34 @@ func (s *Surveys) getSurveyCheckUser(userId UserID, surveyID SurveyID) (*Survey,
 		return nil, false
 	}
 	return survey, exists
+}
+
+func (s *Surveys) getSurveyCheckUserAndDelete(userId UserID, surveyID SurveyID) (*Survey, bool) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	survey, exists := s.surveys[surveyID]
+	if !exists {
+		return nil, false
+	}
+	if survey.userID != userId {
+		return nil, false
+	}
+
+	delete(s.surveys, surveyID)
+
+	return survey, exists
+}
+
+func (s *Surveys) Clear(surveyID SurveyID, userID UserID) {
+	survey, exists := s.getSurveyCheckUserAndDelete(userID, surveyID)
+	if exists {
+		survey.Lock()
+		defer survey.Unlock()
+
+		close(survey.changedNotify)
+
+		log.Printf("Deleted survey, %d surveys remaining\n", len(s.surveys))
+	}
 }
 
 func (s *Surveys) GiveAwayQRCode(surveyID SurveyID, userID UserID) (string, error) {

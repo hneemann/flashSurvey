@@ -94,6 +94,27 @@ func getId(key string, writer http.ResponseWriter, request *http.Request) string
 	return id
 }
 
+func Clear(s *survey.Surveys) http.HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		userId := GetUserId(request)
+		surveyId := GetSurveyId(writer, request)
+		s.Clear(surveyId, userId)
+
+		http.SetCookie(writer, &http.Cookie{
+			Name:   "sid",
+			Path:   "/",
+			MaxAge: -1,
+		})
+		http.SetCookie(writer, &http.Cookie{
+			Name:   "uid",
+			Path:   "/",
+			MaxAge: -1,
+		})
+
+		http.Redirect(writer, request, "/", http.StatusSeeOther)
+	}
+}
+
 func randomString() string {
 	from := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	result := make([]byte, idLength)

@@ -52,7 +52,7 @@
     <img class="menu-icon" onclick="showPopUpById('menu')" src="/static/menu.svg" alt="menu icon"/>
     <nav class="menu-content" id="menu">
         <a onclick="hidePopUp()"
-           href="/?q=Die+letzte+Aufgabe%3Bs%3Bwusste+ich+nicht+einmal+zu+beginnen.%3Bkonnte+ich+nicht+l%C3%B6sen.%3Bh%C3%A4tte+ich+l%C3%B6sen+k%C3%B6nnen.+Die+Zeit+hat+nur+nicht+gereicht.%3Bhabe+ich+korrekt+gel%C3%B6st.%3Bwar+zu+leicht.">
+           href="/?q=Die+letzte+Aufgabe%3Bs%3Bkonnte+ich+nicht+einmal+anfangen.%3Bkonnte+ich+nicht+lösen.%3Bhätte+ich+lösen+können.+Die+Zeit+hat+nur+nicht+gereicht.%3Bhabe+ich+korrekt+gelöst.%3Bwar+zu+leicht.">
            Die Aufgabe ...</a>
         <a onclick="hidePopUp()"
            href="/?q=Das+Thema%3Bs%3Bhabe+ich+überhaupt+nicht+verstanden!%3Bhabe+ich+nur+grob+verstanden!%3Bist+bis+auf+wenige+Details+klar!%3Bhabe+ich+komplett+durchschaut!">
@@ -63,13 +63,16 @@
 
         {{if .Running}}
         <a onclick="hidePopUp()" style="border-top: 1px solid darkgrey" href="/vote/?id={{.SurveyID}}" target="_blank" title="Erlaubt Ihnen, auch selbst eine Stimme abzugeben.">Selbst abstimmen</a>
+        <a onclick="hidePopUp()" href="/" title="Holt die aktuelle Umfrage zurück in die Eingabefelder.">Zurückholen</a>
         <a onclick="hidePopUp()" href="{{.URL}}" title="Erlaubt das Abspeichern einer Umfrage als Link im Browser.">Perma-Link</a>
         <a onclick="hidePopUp()" href="/move/" title="Erlaubt das Weitergeben der Umfrage an ein anderes Gerät!">Kontrolle Weitergeben</a>
         {{else}}
         <span style="border-top: 1px solid darkgrey" title="Erlaubt Ihnen, auch selbst eine Stimme abzugeben.">Selbst abstimmen</span>
+        <span title="Holt die aktuelle Umfrage zurück in die Eingabefelder.">Zurückholen</span>
         <span title="Erlaubt das Abspeichern einer Umfrage als Link im Browser.">Perma-Link</span>
         <span title="Erlaubt das Weitergeben der Umfrage an ein anderes Gerät!">Kontrolle Weitergeben</span>
         {{end}}
+        <a onclick="hidePopUp()" href="/clear/" title="Löschen der Umfrage und aller Access-Tokens">Löschen der Umfrage</a>
     </nav>
   </div>
 
