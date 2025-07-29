@@ -106,11 +106,6 @@ func Clear(s *survey.Surveys) http.HandlerFunc {
 			Path:   "/",
 			MaxAge: -1,
 		})
-		http.SetCookie(writer, &http.Cookie{
-			Name:   "uid",
-			Path:   "/",
-			MaxAge: -1,
-		})
 
 		http.Redirect(writer, request, "/finished/", http.StatusSeeOther)
 	}
