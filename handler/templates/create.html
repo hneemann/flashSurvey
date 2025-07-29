@@ -61,12 +61,14 @@
            href="?q=Frage%3Bs%3BJa%3BNein">
            Ja / Nein</a>
 
+        {{if .Running}}
         <a onclick="hidePopUp()" style="border-top: 1px solid darkgrey" href="/vote/?id={{.SurveyID}}" target="_blank" title="Erlaubt Ihnen, auch selbst eine Stimme abzugeben.">Selbst abstimmen</a>
         <a onclick="hidePopUp()" href="{{.URL}}" title="Erlaubt das Abspeichern einer Umfrage als Link im Browser.">Perma-Link</a>
-        {{if .Running}}
         <a onclick="hidePopUp()" href="/move/" title="Erlaubt das Weitergeben der Umfrage an ein anderes Gerät!">Kontrolle Weitergeben</a>
         {{else}}
-        <span onclick="hidePopUp()" title="Erlaubt das Weitergeben der Umfrage an ein anderes Gerät!">Kontrolle Weitergeben</span>
+        <span style="border-top: 1px solid darkgrey" title="Erlaubt Ihnen, auch selbst eine Stimme abzugeben.">Selbst abstimmen</span>
+        <span title="Erlaubt das Abspeichern einer Umfrage als Link im Browser.">Perma-Link</span>
+        <span title="Erlaubt das Weitergeben der Umfrage an ein anderes Gerät!">Kontrolle Weitergeben</span>
         {{end}}
     </nav>
   </div>
