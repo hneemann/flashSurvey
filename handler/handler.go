@@ -37,6 +37,7 @@ var (
 		},
 	}).ParseFS(templateFS, "templates/*.html"))
 	createTemp       = Templates.Lookup("create.html")
+	moveTemp         = Templates.Lookup("move.html")
 	resultTemp       = Templates.Lookup("result.html")
 	voteTemp         = Templates.Lookup("vote.html")
 	resultTableTemp  = Templates.Lookup("resultTable.html")
@@ -60,8 +61,24 @@ func GetSurveyId(writer http.ResponseWriter, request *http.Request) survey.Surve
 	return survey.SurveyID(getId("sid", writer, request))
 }
 
+const idLength = 30
+
 func getId(key string, writer http.ResponseWriter, request *http.Request) string {
 	var id string
+	query := request.URL.Query()
+	if query.Has("t" + key) {
+		id = query.Get("t" + key)
+		if len(id) == idLength {
+			c := &http.Cookie{
+				Name:  key,
+				Value: id,
+				Path:  "/",
+			}
+			http.SetCookie(writer, c)
+			return id
+		}
+	}
+
 	c, err := request.Cookie(key)
 	if err == nil {
 		id = c.Value
@@ -70,7 +87,7 @@ func getId(key string, writer http.ResponseWriter, request *http.Request) string
 		c = &http.Cookie{
 			Name:  key,
 			Value: id,
-			Path:  "/", // cookie is valid for all paths
+			Path:  "/",
 		}
 		http.SetCookie(writer, c)
 	}
@@ -79,8 +96,7 @@ func getId(key string, writer http.ResponseWriter, request *http.Request) string
 
 func randomString() string {
 	from := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	length := 30
-	result := make([]byte, length)
+	result := make([]byte, idLength)
 	for i := range result {
 		result[i] = from[rand.Intn(len(from))]
 	}
@@ -107,11 +123,7 @@ func (d CreateData) URL() string {
 	return "?q=" + template.URLQueryEscaper(d.Question.String())
 }
 
-func Create(host string, debug bool) http.HandlerFunc {
-	log.Println("QR-Host:", host)
-	if debug {
-		log.Println("Debug mode is enabled")
-	}
+func Create(s *survey.Surveys) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		userId := GetUserId(request)
 
@@ -145,9 +157,9 @@ func Create(host string, debug bool) http.HandlerFunc {
 			}
 			if !request.Form.Has("more") {
 				if request.Form.Has("create") {
-					d.Error = survey.New(host, userId, d.SurveyID, d.Question)
+					d.Error = s.New(userId, d.SurveyID, d.Question)
 				} else {
-					d.Error = survey.Uncover(userId, d.SurveyID, debug)
+					d.Error = s.Uncover(userId, d.SurveyID)
 				}
 			}
 		} else {
@@ -160,7 +172,7 @@ func Create(host string, debug bool) http.HandlerFunc {
 				}
 			}
 			if !d.Question.Valid() {
-				if running, ok := survey.GetRunningSurvey(userId, d.SurveyID); ok {
+				if running, ok := s.GetRunningSurvey(userId, d.SurveyID); ok {
 					d.Question = running
 				} else {
 					d.Question = survey.SurveyQuestion{
@@ -171,12 +183,30 @@ func Create(host string, debug bool) http.HandlerFunc {
 			}
 		}
 
-		d.Hidden, d.Running = survey.IsHiddenRunning(userId, d.SurveyID)
+		d.Hidden, d.Running = s.IsHiddenRunning(userId, d.SurveyID)
 
 		err := createTemp.Execute(writer, d)
 		if err != nil {
 			log.Println(err)
 			return
+		}
+	}
+}
+
+func Move(s *survey.Surveys) http.HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		userId := GetUserId(request)
+		surveyId := GetSurveyId(writer, request)
+
+		data, err := s.GiveAwayQRCode(surveyId, userId)
+		if err != nil {
+			http.Error(writer, "could not create away QR code: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		err = moveTemp.Execute(writer, data)
+		if err != nil {
+			log.Println(err)
 		}
 	}
 }
@@ -202,96 +232,104 @@ func dataFromResult(result survey.Result) ResultData {
 	}
 }
 
-func Result(writer http.ResponseWriter, request *http.Request) {
-	userId := GetUserId(request)
-	surveyId := GetSurveyId(writer, request)
-	result := survey.GetResult(userId, surveyId)
+func Result(s *survey.Surveys) http.HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		userId := GetUserId(request)
+		surveyId := GetSurveyId(writer, request)
+		result := s.GetResult(userId, surveyId)
 
-	data := dataFromResult(result)
+		data := dataFromResult(result)
 
-	err := resultTemp.Execute(writer, data)
-	if err != nil {
-		log.Println(err)
-	}
-}
-
-func ResultRest(writer http.ResponseWriter, request *http.Request) {
-	userId := GetUserId(request)
-	surveyId := GetSurveyId(writer, request)
-
-	vStr := request.URL.Query().Get("v")
-	v, err := strconv.Atoi(vStr)
-	if err != nil {
-		v = -1
-	}
-
-	var result survey.Result
-	if v > 0 {
-		select {
-		case <-time.After(30 * time.Second):
-		case <-survey.WaitForModification(userId, surveyId, v):
+		err := resultTemp.Execute(writer, data)
+		if err != nil {
+			log.Println(err)
 		}
 	}
-	result = survey.GetResult(userId, surveyId)
-
-	jsonData, err := json.Marshal(dataFromResult(result))
-	if err != nil {
-		http.Error(writer, "could not marshal result: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	writer.Header().Set("Content-Type", "application/json")
-	_, err = writer.Write(jsonData)
-	if err != nil {
-		log.Println(err)
-	}
 }
 
-func Vote(writer http.ResponseWriter, request *http.Request) {
-	query := request.URL.Query()
-	surveyId := survey.SurveyID(query.Get("id"))
+func ResultRest(s *survey.Surveys) http.HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		userId := GetUserId(request)
+		surveyId := GetSurveyId(writer, request)
 
-	question := survey.GetQuestion(surveyId)
-	err := voteTemp.Execute(writer, question)
-	if err != nil {
-		log.Println(err)
-	}
-}
+		vStr := request.URL.Query().Get("v")
+		v, err := strconv.Atoi(vStr)
+		if err != nil {
+			v = -1
+		}
 
-func VoteRest(writer http.ResponseWriter, request *http.Request) {
-	query := request.URL.Query()
-	surveyId := survey.SurveyID(query.Get("id"))
-	isOption := query.Has("o")
-	var o []int
-	if isOption {
-		option := query.Get("o")
-		for _, s := range strings.Split(option, ",") {
-			oi, err := strconv.Atoi(s)
-			if err == nil {
-				o = append(o, oi)
+		var result survey.Result
+		if v > 0 {
+			select {
+			case <-time.After(30 * time.Second):
+			case <-s.WaitForModification(userId, surveyId, v):
 			}
 		}
-	}
+		result = s.GetResult(userId, surveyId)
 
-	userId := GetUserId(request)
-	var err error
-	if isOption {
-		nStr := query.Get("n")
-		var n int
-		n, err = strconv.Atoi(nStr)
-		if err == nil {
-			err = survey.Vote(surveyId, userId, o, n)
+		jsonData, err := json.Marshal(dataFromResult(result))
+		if err != nil {
+			http.Error(writer, "could not marshal result: "+err.Error(), http.StatusInternalServerError)
+			return
 		}
-		err = voteNotifyTemp.Execute(writer, err)
-	} else {
-		if survey.HasVoted(surveyId, userId) {
-			err = voteNotifyTemp.Execute(writer, errors.New("Es gibt noch keine neue Umfrage!"))
-		} else {
-			question := survey.GetQuestion(surveyId)
-			err = voteQuestionTemp.Execute(writer, question)
+
+		writer.Header().Set("Content-Type", "application/json")
+		_, err = writer.Write(jsonData)
+		if err != nil {
+			log.Println(err)
 		}
 	}
-	if err != nil {
-		log.Println(err)
+}
+
+func Vote(s *survey.Surveys) http.HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		query := request.URL.Query()
+		surveyId := survey.SurveyID(query.Get("id"))
+
+		question := s.GetQuestion(surveyId)
+		err := voteTemp.Execute(writer, question)
+		if err != nil {
+			log.Println(err)
+		}
+	}
+}
+
+func VoteRest(s *survey.Surveys) http.HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		query := request.URL.Query()
+		surveyId := survey.SurveyID(query.Get("id"))
+		isOption := query.Has("o")
+		var o []int
+		if isOption {
+			option := query.Get("o")
+			for _, s := range strings.Split(option, ",") {
+				oi, err := strconv.Atoi(s)
+				if err == nil {
+					o = append(o, oi)
+				}
+			}
+		}
+
+		userId := GetUserId(request)
+		var err error
+		if isOption {
+			nStr := query.Get("n")
+			var n int
+			n, err = strconv.Atoi(nStr)
+			if err == nil {
+				err = s.Vote(surveyId, userId, o, n)
+			}
+			err = voteNotifyTemp.Execute(writer, err)
+		} else {
+			if s.HasVoted(surveyId, userId) {
+				err = voteNotifyTemp.Execute(writer, errors.New("Es gibt noch keine neue Umfrage!"))
+			} else {
+				question := s.GetQuestion(surveyId)
+				err = voteQuestionTemp.Execute(writer, question)
+			}
+		}
+		if err != nil {
+			log.Println(err)
+		}
 	}
 }
