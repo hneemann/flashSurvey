@@ -22,12 +22,20 @@ func main() {
 	port := flag.Int("port", 8080, "port")
 	flag.Parse()
 
-	http.HandleFunc("/", handler.EnsureId(handler.Create(*host, *debug)))
+	log.Println("QR-Host:", *host)
+	if *debug {
+		log.Println("Debug mode is enabled")
+	}
+
+	surveys := survey.New(*host, *timeOutMin, *debug)
+
+	http.HandleFunc("/", handler.EnsureId(handler.Create(surveys)))
 	http.Handle("/static/", Cache(handler.Static(), 300, !*debug))
-	http.HandleFunc("/result/", handler.EnsureId(handler.Result))
-	http.HandleFunc("/resultRest/", handler.EnsureId(handler.ResultRest))
-	http.HandleFunc("/vote/", handler.EnsureId(handler.Vote))
-	http.HandleFunc("/voteRest/", handler.EnsureId(handler.VoteRest))
+	http.HandleFunc("/result/", handler.EnsureId(handler.Result(surveys)))
+	http.HandleFunc("/resultRest/", handler.EnsureId(handler.ResultRest(surveys)))
+	http.HandleFunc("/vote/", handler.EnsureId(handler.Vote(surveys)))
+	http.HandleFunc("/voteRest/", handler.EnsureId(handler.VoteRest(surveys)))
+	http.HandleFunc("/move/", handler.EnsureId(handler.Move(surveys)))
 
 	serv := &http.Server{Addr: ":" + strconv.Itoa(*port)}
 
@@ -45,8 +53,6 @@ func main() {
 			<-c
 		}
 	}()
-
-	survey.StartSurveyTimeoutCheck(*timeOutMin)
 
 	var err error
 	if *cert != "" && *key != "" {
