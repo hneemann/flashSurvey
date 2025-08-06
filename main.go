@@ -18,16 +18,17 @@ func main() {
 	cert := flag.String("cert", "", "certificate pem")
 	key := flag.String("key", "", "certificate key")
 	timeOutMin := flag.Int("timeout", 30, "timeout in minutes")
+	voteIfVisible := flag.Bool("viv", false, "If this option is enabled, voting is still possible even if the results are already visible.")
 	debug := flag.Bool("debug", false, "debug mode")
 	port := flag.Int("port", 8080, "port")
 	flag.Parse()
 
 	log.Println("QR-Host:", *host)
-	if *debug {
-		log.Println("Debug mode is enabled")
-	}
+	log.Println("Debug:", *debug)
+	log.Println("VoteIfVisible:", *voteIfVisible)
+	log.Println("port:", *port)
 
-	surveys := survey.New(*host, *timeOutMin, *debug)
+	surveys := survey.New(*host, *timeOutMin, *voteIfVisible, *debug)
 
 	http.HandleFunc("/", handler.EnsureUserId(handler.Create(surveys)))
 	http.Handle("/static/", Cache(handler.Static(), 300, !*debug))

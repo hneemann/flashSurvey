@@ -210,10 +210,11 @@ func (s *Survey) Question() Question {
 }
 
 type Surveys struct {
-	mutex   sync.RWMutex
-	surveys map[SurveyId]*Survey
-	host    string
-	debug   bool
+	mutex               sync.RWMutex
+	surveys             map[SurveyId]*Survey
+	host                string
+	debug               bool
+	voteIfResultVisible bool
 }
 
 var closedChannel chan struct{}
@@ -223,11 +224,12 @@ func init() {
 	close(closedChannel)
 }
 
-func New(host string, timeoutMin int, debug bool) *Surveys {
+func New(host string, timeoutMin int, voteIfResultVisible, debug bool) *Surveys {
 	s := &Surveys{
-		surveys: make(map[SurveyId]*Survey),
-		host:    host,
-		debug:   debug,
+		surveys:             make(map[SurveyId]*Survey),
+		host:                host,
+		voteIfResultVisible: voteIfResultVisible,
+		debug:               debug,
 	}
 	s.startSurveyTimeoutCheck(timeoutMin)
 	return s
@@ -536,8 +538,10 @@ func (s *Surveys) Vote(surveyId SurveyId, voterId UserId, option []int, number i
 		return errors.New("Diese Umfrage war schon beendet!")
 	}
 
-	if !survey.resultHidden {
-		return errors.New("Die Umfrageergebnisse sind bereits sichtbar!")
+	if !s.voteIfResultVisible {
+		if !survey.resultHidden {
+			return errors.New("Die Umfrageergebnisse sind bereits sichtbar!")
+		}
 	}
 
 	if _, voted := survey.votesCounted[voterId]; voted {
