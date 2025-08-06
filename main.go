@@ -24,8 +24,8 @@ func main() {
 	flag.Parse()
 
 	log.Println("QR-Host:", *host)
-	log.Println("Debug:", *debug)
-	log.Println("VoteIfVisible:", *voteIfVisible)
+	log.Println("debug:", *debug)
+	log.Println("voteIfVisible:", *voteIfVisible)
 	log.Println("port:", *port)
 
 	surveys := survey.New(*host, *timeOutMin, *voteIfVisible, *debug)
