@@ -21,6 +21,11 @@ function reload() {
                 document.getElementById("result").innerHTML = obj.Result;
             }
             if (obj.Version) {
+                if (obj.Version === -1) {
+                    // Survey was deleted, do not reload
+                    document.getElementById("qrCode").src = "";
+                    return;
+                }
                 version = obj.Version;
             }
             setTimeout(reload, 200);

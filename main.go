@@ -29,14 +29,14 @@ func main() {
 
 	surveys := survey.New(*host, *timeOutMin, *debug)
 
-	http.HandleFunc("/", handler.EnsureId(handler.Create(surveys)))
+	http.HandleFunc("/", handler.EnsureUserId(handler.Create(surveys)))
 	http.Handle("/static/", Cache(handler.Static(), 300, !*debug))
-	http.HandleFunc("/result/", handler.EnsureId(handler.Result(surveys)))
-	http.HandleFunc("/resultRest/", handler.EnsureId(handler.ResultRest(surveys)))
-	http.HandleFunc("/vote/", handler.EnsureId(handler.Vote(surveys)))
-	http.HandleFunc("/voteRest/", handler.EnsureId(handler.VoteRest(surveys)))
-	http.HandleFunc("/move/", handler.EnsureId(handler.Move(surveys)))
-	http.HandleFunc("/clear/", handler.EnsureId(handler.Clear(surveys)))
+	http.HandleFunc("/result/", handler.EnsureUserId(handler.Result(surveys)))
+	http.HandleFunc("/resultRest/", handler.EnsureUserId(handler.ResultRest(surveys)))
+	http.HandleFunc("/vote/", handler.EnsureUserId(handler.Vote(surveys)))
+	http.HandleFunc("/voteRest/", handler.EnsureUserId(handler.VoteRest(surveys)))
+	http.HandleFunc("/move/", handler.EnsureUserId(handler.Move(surveys)))
+	http.HandleFunc("/clear/", handler.EnsureUserId(handler.Clear(surveys)))
 	http.HandleFunc("/finished/", handler.Finished)
 
 	serv := &http.Server{Addr: ":" + strconv.Itoa(*port)}

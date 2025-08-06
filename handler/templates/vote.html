@@ -82,10 +82,10 @@
   </style>
   <script>
     function vote(option,number) {
-      updateTable("/voteRest/?id={{.SurveyID}}&o=" + option+"&n=" + number);
+      updateTable("/voteRest/?id={{.SurveyId}}&o=" + option+"&n=" + number);
     }
     function reload() {
-      updateTable("/voteRest/?id={{.SurveyID}}");
+      updateTable("/voteRest/?id={{.SurveyId}}");
     }
     function multipleVote(number) {
       let option = "";
@@ -104,7 +104,7 @@
         i++;
       }
       console.log("multipleVote: " + option);
-      updateTable("/voteRest/?id={{.SurveyID}}&o=" + option+"&n=" + number);
+      updateTable("/voteRest/?id={{.SurveyId}}&o=" + option+"&n=" + number);
     }
     function updateTable(url) {
       fetch(url)

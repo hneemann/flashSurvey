@@ -9,7 +9,6 @@ import (
 	"flashSurvey/survey"
 	"html/template"
 	"log"
-	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -46,30 +45,37 @@ var (
 	finishedTemp     = Templates.Lookup("finished.html")
 )
 
-func EnsureId(handler http.HandlerFunc) http.HandlerFunc {
+func EnsureUserId(handler http.HandlerFunc) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		userId := getId("uid", writer, request)
+		if userId == "" {
+			userId = survey.RandomString()
+			http.SetCookie(writer, &http.Cookie{
+				Name:  "uid",
+				Value: userId,
+				Path:  "/",
+			})
+
+		}
 		request = request.WithContext(context.WithValue(request.Context(), "id", userId))
 		handler(writer, request)
 	}
 }
 
-func GetUserId(request *http.Request) survey.UserID {
-	return survey.UserID(request.Context().Value("id").(string))
+func GetUserId(request *http.Request) survey.UserId {
+	return survey.UserId(request.Context().Value("id").(string))
 }
 
-func GetSurveyId(writer http.ResponseWriter, request *http.Request) survey.SurveyID {
-	return survey.SurveyID(getId("sid", writer, request))
+func GetSurveyId(writer http.ResponseWriter, request *http.Request) survey.SurveyId {
+	return survey.SurveyId(getId("sid", writer, request))
 }
-
-const idLength = 30
 
 func getId(key string, writer http.ResponseWriter, request *http.Request) string {
 	var id string
 	query := request.URL.Query()
 	if query.Has("t" + key) {
 		id = query.Get("t" + key)
-		if len(id) == idLength {
+		if len(id) == survey.IdLength {
 			c := &http.Cookie{
 				Name:  key,
 				Value: id,
@@ -83,14 +89,6 @@ func getId(key string, writer http.ResponseWriter, request *http.Request) string
 	c, err := request.Cookie(key)
 	if err == nil {
 		id = c.Value
-	} else {
-		id = randomString()
-		c = &http.Cookie{
-			Name:  key,
-			Value: id,
-			Path:  "/",
-		}
-		http.SetCookie(writer, c)
 	}
 	return id
 }
@@ -118,17 +116,8 @@ func Finished(writer http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-func randomString() string {
-	from := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	result := make([]byte, idLength)
-	for i := range result {
-		result[i] = from[rand.Intn(len(from))]
-	}
-	return string(result)
-}
-
 type CreateData struct {
-	SurveyID survey.SurveyID
+	SurveyID survey.SurveyId
 	Question survey.SurveyQuestion
 	Hidden   bool
 	Running  bool
@@ -181,7 +170,14 @@ func Create(s *survey.Surveys) http.HandlerFunc {
 			}
 			if !request.Form.Has("more") {
 				if request.Form.Has("create") {
-					d.Error = s.New(userId, d.SurveyID, d.Question)
+					d.SurveyID, d.Error = s.New(userId, d.SurveyID, d.Question)
+					if d.Error == nil {
+						http.SetCookie(writer, &http.Cookie{
+							Name:  "sid",
+							Value: string(d.SurveyID),
+							Path:  "/",
+						})
+					}
 				} else {
 					d.Error = s.Uncover(userId, d.SurveyID)
 				}
@@ -308,7 +304,7 @@ func ResultRest(s *survey.Surveys) http.HandlerFunc {
 func Vote(s *survey.Surveys) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		query := request.URL.Query()
-		surveyId := survey.SurveyID(query.Get("id"))
+		surveyId := survey.SurveyId(query.Get("id"))
 
 		question := s.GetQuestion(surveyId)
 		err := voteTemp.Execute(writer, question)
@@ -321,7 +317,7 @@ func Vote(s *survey.Surveys) http.HandlerFunc {
 func VoteRest(s *survey.Surveys) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		query := request.URL.Query()
-		surveyId := survey.SurveyID(query.Get("id"))
+		surveyId := survey.SurveyId(query.Get("id"))
 		isOption := query.Has("o")
 		var o []int
 		if isOption {

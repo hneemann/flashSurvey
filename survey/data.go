@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/skip2/go-qrcode"
 	"log"
+	"math/rand"
 	"strconv"
 	"strings"
 	"sync"
@@ -97,22 +98,52 @@ func (o Options) result(sum int, hidden bool) ([]OptionResult, float64) {
 	return res, maxPercent
 }
 
-type SurveyID string
-type UserID string
+type SurveyId string
+type UserId string
 
 type Survey struct {
-	mutex         sync.Mutex
-	question      SurveyQuestion
-	surveyID      SurveyID
-	userID        UserID
-	qrCode        string
-	options       Options
-	number        int
-	votesCounted  map[UserID]struct{}
-	resultHidden  bool
-	creationTime  time.Time
+	mutex    sync.Mutex
+	question SurveyQuestion
+	surveyId SurveyId
+	userId   UserId
+	qrCode   string
+	options  Options
+	// The number is the number of times the survey has been updated.
+	// This is incremented whenever the question or options are changed.
+	// It is not incremented for votes.
+	number       int
+	votesCounted map[UserId]struct{}
+	resultHidden bool
+	creationTime time.Time
+	// The version is incremented whenever the survey is changed.
+	// This includes votes.
 	version       int
 	changedNotify chan struct{}
+}
+
+func NewSurvey(userId UserId, def SurveyQuestion, opt []Option, host string) (*Survey, error) {
+	surveyId := SurveyId(RandomString())
+
+	url := host + "/vote/?id=" + string(surveyId)
+
+	qrCode, err := qrcode.Encode(url, qrcode.Medium, 512)
+	if err != nil {
+		return nil, fmt.Errorf("could not create qr code: %w", err)
+	}
+
+	return &Survey{
+		question:      def,
+		surveyId:      surveyId,
+		qrCode:        base64.StdEncoding.EncodeToString(qrCode),
+		userId:        userId,
+		options:       opt,
+		number:        1,
+		votesCounted:  make(map[UserId]struct{}),
+		resultHidden:  true,
+		creationTime:  time.Now(),
+		version:       1,
+		changedNotify: make(chan struct{}),
+	}, nil
 }
 
 func (s *Survey) Lock() {
@@ -129,6 +160,18 @@ func (s *Survey) changed() {
 		close(s.changedNotify)
 	}
 	s.changedNotify = make(chan struct{})
+}
+
+func (s *Survey) Update(def SurveyQuestion, opt []Option) {
+	s.Lock()
+	defer s.Unlock()
+	s.question = def
+	s.options = opt
+	s.number++
+	s.votesCounted = make(map[UserId]struct{})
+	s.resultHidden = true
+	s.creationTime = time.Now()
+	s.changed()
 }
 
 type Result struct {
@@ -154,21 +197,21 @@ func (s *Survey) Result() Result {
 
 type Question struct {
 	Number   int
-	SurveyID SurveyID
+	SurveyId SurveyId
 	Question SurveyQuestion
 }
 
 func (s *Survey) Question() Question {
 	return Question{
 		Number:   s.number,
-		SurveyID: s.surveyID,
+		SurveyId: s.surveyId,
 		Question: s.question,
 	}
 }
 
 type Surveys struct {
 	mutex   sync.RWMutex
-	surveys map[SurveyID]*Survey
+	surveys map[SurveyId]*Survey
 	host    string
 	debug   bool
 }
@@ -182,7 +225,7 @@ func init() {
 
 func New(host string, timeoutMin int, debug bool) *Surveys {
 	s := &Surveys{
-		surveys: make(map[SurveyID]*Survey),
+		surveys: make(map[SurveyId]*Survey),
 		host:    host,
 		debug:   debug,
 	}
@@ -246,135 +289,143 @@ func DefinitionFromString(str string) (SurveyQuestion, error) {
 	return def, nil
 }
 
-func (s *Surveys) New(userID UserID, surveyID SurveyID, def SurveyQuestion) error {
+func (s *Surveys) New(userId UserId, knownSurveyId SurveyId, def SurveyQuestion) (SurveyId, error) {
 	opt := make([]Option, len(def.Options))
 	for i, option := range def.Options {
 		option = strings.TrimSpace(option)
 		if option == "" {
-			return fmt.Errorf("Option %d ist leer!", i+1)
+			return "", fmt.Errorf("Option %d ist leer!", i+1)
 		} else if len(option) > maxStringLen {
-			return fmt.Errorf("Option %d ist zu lang! Maximal %d Zeichen erlaubt.", i+1, maxStringLen)
+			return "", fmt.Errorf("Option %d ist zu lang! Maximal %d Zeichen erlaubt.", i+1, maxStringLen)
 		}
 		opt[i] = Option{Title: option, Votes: 0}
 	}
 
-	url := s.host + "/vote/?id=" + string(surveyID)
-
-	qrCode, err := qrcode.Encode(url, qrcode.Medium, 512)
-	if err != nil {
-		return fmt.Errorf("could not create qr code: %w", err)
-	}
-
 	def.Title = strings.TrimSpace(def.Title)
 	if def.Title == "" {
-		return errors.New("Es fehlt der Titel!")
+		return "", errors.New("Es fehlt der Titel!")
 	} else if len(def.Title) > maxStringLen {
-		return fmt.Errorf("Der Titel ist zu lang! Maximal %d Zeichen erlaubt.", maxStringLen)
+		return "", fmt.Errorf("Der Titel ist zu lang! Maximal %d Zeichen erlaubt.", maxStringLen)
 	}
 
 	if len(opt) < 2 {
-		return errors.New("Es müssen mindestens zwei Optionen angegeben werden!")
+		return "", errors.New("Es müssen mindestens zwei Optionen angegeben werden!")
 	}
 
-	survey := &Survey{
-		surveyID:     surveyID,
-		userID:       userID,
-		qrCode:       base64.StdEncoding.EncodeToString(qrCode),
-		options:      opt,
-		question:     def,
-		resultHidden: true,
-		votesCounted: make(map[UserID]struct{}),
-		creationTime: time.Now(),
-		version:      1,
-	}
-
-	replaced, surveyCount, err := s.createSurvey(survey)
-	if err != nil {
-		return err
-	}
-
-	if replaced {
-		log.Printf("replaced survey with %d options, in total %d surveys", len(opt), surveyCount)
-	} else {
-		log.Printf("created survey with %d options, in total %d surveys", len(opt), surveyCount)
-	}
-
-	return nil
-}
-
-func (s *Surveys) createSurvey(newSurvey *Survey) (bool, int, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	replaced := false
-	if existingSurvey, exists := s.surveys[newSurvey.surveyID]; exists {
-		if existingSurvey.userID != newSurvey.userID {
-			return false, 0, errors.New("Diese Umfrage existiert bereits und wurde von einem anderen Benutzer erstellt!")
+	if len(knownSurveyId) == IdLength {
+		ok, err := s.tryUpdate(userId, knownSurveyId, def, opt)
+		if err != nil {
+			return "", err
 		}
-		replaced = true
-		existingSurvey.Lock()
-		defer existingSurvey.Unlock()
-		newSurvey.number = existingSurvey.number + 1
-		newSurvey.version = existingSurvey.version
-		newSurvey.changedNotify = existingSurvey.changedNotify
-		newSurvey.changed()
-	} else {
-		newSurvey.changedNotify = make(chan struct{})
+		if ok { // There was an existing survey to update
+			log.Printf("updated survey with %d options, in total %d surveys", len(opt), s.getSurveyCount())
+			return knownSurveyId, nil
+		}
 	}
-	s.surveys[newSurvey.surveyID] = newSurvey
-	return replaced, len(s.surveys), nil
-}
 
-func (s *Surveys) getSurveyToVote(surveyID SurveyID) (*Survey, bool) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	survey, exists := s.surveys[surveyID]
-	return survey, exists
-}
-
-func (s *Surveys) getSurveyCheckUser(userId UserID, surveyID SurveyID) (*Survey, bool) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	survey, exists := s.surveys[surveyID]
-	if !exists {
-		return nil, false
+	su, err := NewSurvey(userId, def, opt, s.host)
+	if err != nil {
+		return "", err
 	}
-	if survey.userID != userId {
-		return nil, false
-	}
-	return survey, exists
-}
+	log.Printf("created survey with %d options, in total %d surveys", len(opt), s.getSurveyCount()+1)
 
-func (s *Surveys) getSurveyCheckUserAndDelete(userId UserID, surveyID SurveyID) (*Survey, bool) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	survey, exists := s.surveys[surveyID]
+
+	if _, exists := s.surveys[su.surveyId]; exists {
+		// Almost impossible, but just in case
+		log.Printf("survey with ID %s already exists, this should not happen!", su.surveyId)
+		return "", fmt.Errorf("Umfrage mit ID %s existiert bereits!", su.surveyId)
+	}
+
+	s.surveys[su.surveyId] = su
+
+	return su.surveyId, nil
+}
+
+func (s *Surveys) getSurveyCount() int {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	return len(s.surveys)
+}
+
+func (s *Surveys) tryUpdate(userId UserId, oldSurveyId SurveyId, def SurveyQuestion, opt []Option) (bool, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if existingSurvey, exists := s.surveys[oldSurveyId]; exists {
+		if existingSurvey.userId != userId {
+			return false, errors.New("Diese Umfrage existiert bereits und wurde von einem anderen Benutzer erstellt!")
+		}
+		existingSurvey.Update(def, opt)
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
+const IdLength = 30
+
+func RandomString() string {
+	from := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	result := make([]byte, IdLength)
+	for i := range result {
+		result[i] = from[rand.Intn(len(from))]
+	}
+	return string(result)
+}
+
+func (s *Surveys) getSurveyToVote(surveyId SurveyId) (*Survey, bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	survey, exists := s.surveys[surveyId]
+	return survey, exists
+}
+
+func (s *Surveys) getSurveyCheckUser(userId UserId, surveyId SurveyId) (*Survey, bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	survey, exists := s.surveys[surveyId]
 	if !exists {
 		return nil, false
 	}
-	if survey.userID != userId {
+	if survey.userId != userId {
+		return nil, false
+	}
+	return survey, exists
+}
+
+func (s *Surveys) deleteSurvey(userId UserId, surveyId SurveyId) (*Survey, bool) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	survey, exists := s.surveys[surveyId]
+	if !exists {
+		return nil, false
+	}
+	if survey.userId != userId {
 		return nil, false
 	}
 
-	delete(s.surveys, surveyID)
+	delete(s.surveys, surveyId)
 
 	return survey, exists
 }
 
-func (s *Surveys) Clear(surveyID SurveyID, userID UserID) {
-	survey, exists := s.getSurveyCheckUserAndDelete(userID, surveyID)
+func (s *Surveys) Clear(surveyId SurveyId, userId UserId) {
+	survey, exists := s.deleteSurvey(userId, surveyId)
 	if exists {
 		survey.Lock()
 		defer survey.Unlock()
 
 		close(survey.changedNotify)
 
-		log.Printf("Deleted survey, %d surveys remaining\n", len(s.surveys))
+		log.Printf("deleted survey, %d surveys remaining\n", len(s.surveys))
 	}
 }
 
-func (s *Surveys) GiveAwayQRCode(surveyID SurveyID, userID UserID) (string, error) {
-	survey, exists := s.getSurveyCheckUser(userID, surveyID)
+func (s *Surveys) GiveAwayQRCode(surveyId SurveyId, userId UserId) (string, error) {
+	survey, exists := s.getSurveyCheckUser(userId, surveyId)
 	if !exists {
 		return "", errors.New("Diese Umfrage existiert nicht!")
 	}
@@ -382,11 +433,11 @@ func (s *Surveys) GiveAwayQRCode(surveyID SurveyID, userID UserID) (string, erro
 	survey.Lock()
 	defer survey.Unlock()
 
-	if survey.userID != userID {
+	if survey.userId != userId {
 		return "", errors.New("Sie sind nicht der Ersteller dieser Umfrage!")
 	}
 
-	url := fmt.Sprintf("%s/?tuid=%s&tsid=%s", s.host, userID, surveyID)
+	url := fmt.Sprintf("%s/?tuid=%s&tsid=%s", s.host, userId, surveyId)
 
 	qrCode, err := qrcode.Encode(url, qrcode.Medium, 512)
 	if err != nil {
@@ -396,8 +447,8 @@ func (s *Surveys) GiveAwayQRCode(surveyID SurveyID, userID UserID) (string, erro
 	return base64.StdEncoding.EncodeToString(qrCode), nil
 }
 
-func (s *Surveys) Uncover(userid UserID, surveyID SurveyID) error {
-	survey, exists := s.getSurveyCheckUser(userid, surveyID)
+func (s *Surveys) Uncover(userid UserId, surveyId SurveyId) error {
+	survey, exists := s.getSurveyCheckUser(userid, surveyId)
 	if !exists {
 		return errors.New("Diese Umfrage existiert nicht!")
 	}
@@ -405,7 +456,7 @@ func (s *Surveys) Uncover(userid UserID, surveyID SurveyID) error {
 	survey.Lock()
 	defer survey.Unlock()
 
-	if survey.userID != userid {
+	if survey.userId != userid {
 		return errors.New("Sie sind nicht der Ersteller dieser Umfrage!")
 	}
 
@@ -419,7 +470,7 @@ func (s *Surveys) Uncover(userid UserID, surveyID SurveyID) error {
 	return nil
 }
 
-func (s *Surveys) WaitForModification(userId UserID, surveyId SurveyID, clientVersion int) chan struct{} {
+func (s *Surveys) WaitForModification(userId UserId, surveyId SurveyId, clientVersion int) chan struct{} {
 	survey, exists := s.getSurveyCheckUser(userId, surveyId)
 	if !exists {
 		return nil
@@ -436,10 +487,10 @@ func (s *Surveys) WaitForModification(userId UserID, surveyId SurveyID, clientVe
 	return survey.changedNotify
 }
 
-func (s *Surveys) GetResult(userId UserID, surveyID SurveyID) Result {
-	survey, exists := s.getSurveyCheckUser(userId, surveyID)
+func (s *Surveys) GetResult(userId UserId, surveyId SurveyId) Result {
+	survey, exists := s.getSurveyCheckUser(userId, surveyId)
 	if !exists {
-		return Result{Title: "Es gibt z.Z. keine Umfrage!"}
+		return Result{Title: "Es gibt z.Z. keine Umfrage!", Version: -1}
 	}
 
 	survey.Lock()
@@ -448,8 +499,8 @@ func (s *Surveys) GetResult(userId UserID, surveyID SurveyID) Result {
 	return survey.Result()
 }
 
-func (s *Surveys) GetRunningSurvey(userID UserID, surveyID SurveyID) (SurveyQuestion, bool) {
-	survey, exists := s.getSurveyCheckUser(userID, surveyID)
+func (s *Surveys) GetRunningSurvey(userId UserId, surveyId SurveyId) (SurveyQuestion, bool) {
+	survey, exists := s.getSurveyCheckUser(userId, surveyId)
 	if !exists {
 		return SurveyQuestion{}, false
 	}
@@ -460,8 +511,8 @@ func (s *Surveys) GetRunningSurvey(userID UserID, surveyID SurveyID) (SurveyQues
 	return survey.question, true
 }
 
-func (s *Surveys) IsHiddenRunning(userID UserID, surveyID SurveyID) (bool, bool) {
-	survey, exists := s.getSurveyCheckUser(userID, surveyID)
+func (s *Surveys) IsHiddenRunning(userId UserId, surveyId SurveyId) (bool, bool) {
+	survey, exists := s.getSurveyCheckUser(userId, surveyId)
 	if !exists {
 		return false, false
 	}
@@ -472,8 +523,8 @@ func (s *Surveys) IsHiddenRunning(userID UserID, surveyID SurveyID) (bool, bool)
 	return survey.resultHidden, true
 }
 
-func (s *Surveys) Vote(surveyID SurveyID, voterId UserID, option []int, number int) error {
-	survey, exists := s.getSurveyToVote(surveyID)
+func (s *Surveys) Vote(surveyId SurveyId, voterId UserId, option []int, number int) error {
+	survey, exists := s.getSurveyToVote(surveyId)
 	if !exists {
 		return errors.New("Diese Umfrage existiert nicht!")
 	}
@@ -482,12 +533,18 @@ func (s *Surveys) Vote(surveyID SurveyID, voterId UserID, option []int, number i
 	defer survey.Unlock()
 
 	if number != survey.number {
-		return errors.New("Diese Wahl war schon abgeschlossen!")
+		return errors.New("Diese Umfrage war schon beendet!")
+	}
+
+	if !survey.resultHidden {
+		return errors.New("Die Umfrageergebnisse sind bereits sichtbar!")
 	}
 
 	if _, voted := survey.votesCounted[voterId]; voted {
 		return errors.New("Sie haben bereits abgestimmt!")
 	}
+
+	survey.votesCounted[voterId] = struct{}{}
 
 	for _, opt := range option {
 		if opt < 0 || opt >= len(survey.options) {
@@ -496,15 +553,13 @@ func (s *Surveys) Vote(surveyID SurveyID, voterId UserID, option []int, number i
 		survey.options[opt].Votes++
 	}
 
-	survey.votesCounted[voterId] = struct{}{}
-
 	survey.changed()
 
 	return nil
 }
 
-func (s *Surveys) HasVoted(surveyID SurveyID, voterId UserID) bool {
-	survey, exists := s.getSurveyToVote(surveyID)
+func (s *Surveys) HasVoted(surveyId SurveyId, voterId UserId) bool {
+	survey, exists := s.getSurveyToVote(surveyId)
 	if !exists {
 		return false
 	}
@@ -516,8 +571,8 @@ func (s *Surveys) HasVoted(surveyID SurveyID, voterId UserID) bool {
 	return voted
 }
 
-func (s *Surveys) GetQuestion(surveyID SurveyID) Question {
-	survey, exists := s.getSurveyToVote(surveyID)
+func (s *Surveys) GetQuestion(surveyId SurveyId) Question {
+	survey, exists := s.getSurveyToVote(surveyId)
 	if !exists {
 		return Question{Question: SurveyQuestion{Title: "Die Umfrage existiert nicht!"}}
 	}
