@@ -31,10 +31,15 @@ div.hori {
 
 @media (orientation: portrait) {
     img {
-        width: 100%;
-        height: auto;
-        margin-top: auto;
-        margin-bottom: auto;
+        display: block;
+        width: auto;
+        height: 100%;
+        margin: auto;
+    }
+    div.hori {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr min-content;
+        height: 100vh;
     }
 }
 
