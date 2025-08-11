@@ -23,13 +23,14 @@ func TestSync(t *testing.T) {
 
 const voters = 100
 
+var description = SurveyQuestion{
+	Title:    "Test",
+	Options:  []string{"Yes", "No"},
+	Multiple: false,
+}
+
 func voting(t *testing.T, s *Surveys, mainWg *sync.WaitGroup) {
 	userId := UserId(RandomString())
-	description := SurveyQuestion{
-		Title:    "Test",
-		Options:  []string{"Yes", "No"},
-		Multiple: false,
-	}
 	sid, err := s.New(userId, "", description)
 	assert.NoError(t, err)
 
@@ -38,9 +39,9 @@ func voting(t *testing.T, s *Surveys, mainWg *sync.WaitGroup) {
 	for range voters {
 		wg.Add(1)
 		go func() {
-			uid := UserId(RandomString())
+			voterId := UserId(RandomString())
 			<-start
-			err := s.Vote(sid, uid, []int{0}, 1)
+			err := s.Vote(sid, voterId, []int{1}, 1)
 			assert.NoError(t, err)
 			wg.Done()
 		}()
@@ -53,8 +54,9 @@ func voting(t *testing.T, s *Surveys, mainWg *sync.WaitGroup) {
 	assert.NoError(t, err)
 
 	r := s.GetResult(userId, sid)
-	assert.NotNil(t, r)
-
 	assert.EqualValues(t, voters, r.Votes)
+	assert.EqualValues(t, voters, r.Result[1].votes)
+
+	s.Clear(sid, userId)
 	mainWg.Done()
 }

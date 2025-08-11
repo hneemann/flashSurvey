@@ -422,7 +422,7 @@ func (s *Surveys) Clear(surveyId SurveyId, userId UserId) {
 
 		close(survey.changedNotify)
 
-		log.Printf("deleted survey, %d surveys remaining\n", len(s.surveys))
+		log.Printf("deleted survey, %d surveys remaining\n", s.getSurveyCount())
 	}
 }
 
