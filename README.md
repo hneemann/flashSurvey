@@ -1,13 +1,20 @@
 # flashSurvey #
 
-FlashSurvey is a simple, fast, and easy-to-use survey application.
-It is possible to create surveys with multiple choice questions, with 
-up to six answers. The creating user is able to create the survey and 
-open a page containing a QR-Code to be shown on a beamer. This way the 
-voting users are able to scan the shown QR-Code to take part in the 
-survey. It is no account required, but you have to host it on your own.
+FlashSurvey is a simple, fast, and user-friendly survey application that 
+can be used in a lecture to conduct a survey among the students present.
+It is possible to create surveys with multiple choice questions.
+The creator of the survey can choose whether students are allowed to give 
+only one answer or select multiple options.
 
-Because there is no account required, it is not possible to store a 
-survey template. But you can copy a permanent URL of the survey and
+The creating user has to open a web-page containing a QR-Code to be shown 
+on a video projector. This way the students are able to scan the shown 
+QR-Code to take part in the survey. 
+Neither the creator of the survey nor the students need an account.
+
+This way, launching a survey, letting students vote, and displaying the 
+results is a matter of seconds.
+
+It is not possible to store a survey template on the server. 
+But you can create a permanent URL of the survey and
 use it later to create a new survey with the same questions.
 This way you can store survey templates in your browser bookmarks.
